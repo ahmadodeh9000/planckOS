@@ -32,10 +32,14 @@ enum vga_color {
 /* background color */
 // void set_back_ground_color(uint8_t bg , uint8_t fg);
 
+
+
 /* print functions */
+void putc(char c);
 void print(const char* str);
 void print_number(int number);
 void print_hex(uint32_t hex);
+void print_rainbow(const char* str);
 
 // void init_background();
 

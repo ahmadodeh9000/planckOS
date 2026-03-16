@@ -66,6 +66,29 @@ void print_number(int number) {
     }
 }
 
+/* for the keyboard */
+void putc(char c) {
+    
+    if (c == '\b') {    /* for backspace */
+
+        if (cursor_col == 0 && cursor_row == 2) {
+            
+            return;
+        }
+        --cursor_col;
+
+        if (cursor_col < 0) {
+            cursor_col = VGA_WIDTH - 1;
+            --cursor_row;
+        }
+
+        print_char(' ',VGA_COLOR_WHITE);
+        --cursor_col;
+        
+    }
+    else print_char(c,VGA_COLOR_WHITE);
+}
+
 void print_hex(uint32_t hex) {
     /* todo */
 }
@@ -78,3 +101,10 @@ void print(const char* str) {
         print_char(str[i],VGA_COLOR_WHITE);
     }
 }
+
+void print_rainbow(const char* str) {
+    for (int32_t i = 0 ; str[i] != '\0'; ++i) {
+        print_char(str[i],(i % 15) + 1);
+    }
+}
+

@@ -5,6 +5,7 @@
 
 void* kmemset(void* ptr, int32_t value, uint32_t count);
 void outportb(uint16_t port, uint8_t value);
+char inportb(uint16_t port);
 
 typedef struct {
     uint32_t gs, fs, es, ds;          // pushed last (popped first)
@@ -14,6 +15,7 @@ typedef struct {
     uint32_t eip, cs, eflags,
              useresp, ss;             // pushed by CPU on interrupt
 } __attribute__((packed)) registers_t;
+
 
 
 
