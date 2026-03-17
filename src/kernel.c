@@ -1,20 +1,24 @@
+
 #include "vga.h"
-#include "gdt.h"
-#include "idt.h"
-//#include "timer.h"
+#include "gdt/gdt.h"
+#include "idt/idt.h"
 #include "keyboard.h"
+#include "strings.h"
+#include "shell.h"
 
 void kmain() {
-    print_rainbow("PlanckOS V 0.0.1\n\n");
     
     gdt_init();
     idt_init();
 
 
+    asm volatile("sti");   // enabling cpu interrupts
+    keyboard_init();
 
-    //timer_install();
-    init_keyboard();
-    asm volatile("sti");
+
+    init_shell();
+
+    
     for (;;) asm volatile("hlt"); // halt CPU and wait for interrupts
     
 }

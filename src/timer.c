@@ -1,4 +1,4 @@
-#include "idt.h"
+#include "idt/idt.h"
 #include "vga.h"
 
 volatile uint32_t ticks = 0;

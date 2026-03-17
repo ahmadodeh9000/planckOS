@@ -3,7 +3,6 @@
 
 #include "util.h"
 
-void init_keyboard();
-
-
+void keyboard_init();
+uint32_t readline(char* s);
 #endif
