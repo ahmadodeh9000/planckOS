@@ -1,4 +1,14 @@
-CC = i686-elf-gcc -m32 -ffreestanding -fno-stack-protector -fno-builtin -c
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Darwin)
+	CC = i686-elf-gcc -m32 -ffreestanding -fno-stack-protector -fno-builtin -c
+	LD = i686-elf-ld
+	GRUB = i686-elf-grub-mkrescue
+else ifeq($(UNAME),LINUX)
+	CC = gcc -m32 -ffreestanding -fno-stack-protector -fno-builtin -c
+	LD = ld
+	GRUB = grub-mkrescue
+endif
 
 all:
 	nasm -f elf32 boot/boot.s -o boot.o
@@ -16,10 +26,10 @@ all:
 	$(CC) src/keyboard.c -o keyboard.o
 	$(CC) src/shell.c -o shell.o
 	
-	i686-elf-ld -T link.ld -m elf_i386 -o kernel *.o
+	$(LD) -T link.ld -m elf_i386 -o kernel *.o
 	
 	mv kernel planck/boot/kernel
-	i686-elf-grub-mkrescue -o planckOS.iso planck
+	$(GRUB) -o planckOS.iso planck
 	
 	rm *.o
 	

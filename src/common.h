@@ -7,7 +7,7 @@
 
 /* constants */
 #define OS_NAME     "planckOS"
-#define OS_VERSION  "0.0.2"
+#define OS_VERSION  "0.0.3"
 
 #define KERNEL_NAME "Iris"
 
