@@ -3,8 +3,5 @@
 
 void init_shell();
 
-void print_info();
-void help_shell();
-void clear();
 
 #endif

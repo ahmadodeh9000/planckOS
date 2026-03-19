@@ -1,6 +1,5 @@
 #include "keyboard.h"
 #include "idt/idt.h"
-#include "vga.h"
 #include "shell.h"
 #include "strings.h"
 

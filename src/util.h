@@ -2,6 +2,7 @@
 #define util_h__
 
 #include "common.h"
+#include "vga.h"
 
 void* kmemset(void* ptr, int32_t value, uint32_t count);
 void outportb(uint16_t port, uint8_t value);

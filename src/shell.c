@@ -1,6 +1,5 @@
 #include "shell.h"
 #include "strings.h"
-#include "vga.h"
 #include "keyboard.h"
 #include "util.h"
 
@@ -17,9 +16,33 @@ void print_info() {
     print("\n");
 }
 
+void echo(const char* str) {
+
+    if (strlen(str) == 5) return;
+
+    for (uint32_t i = 5; str[i] != '\0'; ++i) {
+        putc(str[i]);
+    }
+    putc('\n');
+}
+
+bool check_echo(const char* str) {
+    bool is_echo = true;
+    char* echo_str = "echo ";
+
+    for (int i = 0; i < 5; ++i) {
+        if (str[i] != echo_str[i]) {
+            is_echo = false;
+        }
+    }
+
+    return is_echo;
+}
+
 void help_shell() {
     print("     1) info\n");
     print("     2) clear\n");
+    print("     3) echo\n");
 }
 
 void clear() {
@@ -55,6 +78,9 @@ void init_shell() {
 
         else if (strcmp(in,"clear") == 0) {
             clear();
+        }
+        else if (check_echo(in)) {
+            echo(in);
         }
 
         else {
