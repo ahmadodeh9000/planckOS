@@ -77,7 +77,7 @@ void init_shell() {
         }
 
         else {
-            print("Unknown\n");
+            print("Unknown Command !\n");
         }
         
     }

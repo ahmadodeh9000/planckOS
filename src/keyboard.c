@@ -1,6 +1,5 @@
 #include "keyboard.h"
 #include "idt/idt.h"
-#include "shell.h"
 #include "strings.h"
 
 #define BUF_SIZE    2048
@@ -17,15 +16,30 @@ static const char scancode_map[128] = {
     '*', 0, ' '
 };
 
+static const char scancode_map_shift[128] = {
+    0,  0,  '!','@','#','$','%','^','&','*','(',')','_','+','\b',
+    '\t','Q','W','E','R','T','Y','U','I','O','P','{','}','\n',
+    0,  'A','S','D','F','G','H','J','K','L',':','"','~',
+    0,  '|','Z','X','C','V','B','N','M','<','>','?',0,
+    '*', 0, ' '
+};
+
+static bool is_shift_pressed = false;
 
 
 void keyboard_handler(registers_t* regs) {
-    char scan_code = inportb(0x60);// what key is pressed
+    unsigned char scan_code = inportb(0x60); // what key is pressed
+
+
+    /* checking left and right shift press/release */
+    if (scan_code == 0x2A || scan_code == 0x36) { is_shift_pressed = true; return;} 
+    if (scan_code == 0xAA || scan_code == 0xB6) { is_shift_pressed = false; return;}
+    
+    
 
     if (scan_code & 0x80) return; 
 
-    char c = scancode_map[scan_code];
-    
+    char c = is_shift_pressed ? scancode_map_shift[scan_code] : scancode_map[scan_code];
     if (!c) return; // unmapped
     
     if (c == '\b') {
@@ -34,6 +48,7 @@ void keyboard_handler(registers_t* regs) {
             buffer[index] = '\0';
             putc('\b');
         }
+       
         return;
     }
 
