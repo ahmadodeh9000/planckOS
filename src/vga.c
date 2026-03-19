@@ -98,6 +98,28 @@ void print_number(int number) {
     }
 }
 
+void print_hex(uint32_t num) {
+    char hex[] = "0123456789ABCDEF";
+    char buf[9];
+    int i = 0;
+
+    if (num == 0) {
+        print("0x0");
+        return;
+    }
+
+    while (num > 0) {
+        buf[i++] = hex[num % 16];
+        num /= 16;
+    }
+
+    print("0x");
+
+    while (i--) {
+        putc(buf[i]);
+    }
+}
+
 /* for the keyboard */
 void putc(char c) {
 
@@ -115,6 +137,79 @@ void putc(char c) {
         }
 
         print_char(' ',VGA_COLOR_WHITE);
+        --cursor_col;
+        
+        
+    }
+    else {
+        print_char(c,VGA_COLOR_WHITE);
+    }
+
+    vga_unpdate_cursor(cursor_row,cursor_col);
+    
+}
+
+void print_number_rainbow(int number) {
+    char buffer[12];
+    int32_t index = 0;
+
+    if (number == 0) {
+        print_char('0',(index % 15) + 1);
+        return;
+    }
+
+    if (number < 0) {
+        print_char('-',(index % 15) + 1);
+        number *= -1;
+    }
+
+    while (number > 0) {
+        buffer[index++] = '0' + (number % 10);
+        number /= 10;
+    }
+
+    for (int32_t k = index - 1; k >= 0; --k) {
+        print_char(buffer[k],(index % 15) + 1);
+    }
+}
+void print_hex_rainbow(uint32_t num) {
+    char hex[] = "0123456789ABCDEF";
+    char buf[9];
+    int i = 0;
+
+    if (num == 0) {
+        print_rainbow("0x0");
+        return;
+    }
+
+    while (num > 0) {
+        buf[i++] = hex[num % 16];
+        num /= 16;
+    }
+
+    print_rainbow("0x");
+
+    while (i--) {
+        putc_rainbow(buf[i]);
+    }
+}
+
+void putc_rainbow(char c) {
+
+    if (c == '\b') {    /* for backspace */
+
+        if (cursor_col == 0 && cursor_row == 2) {
+            
+            return;
+        }
+        --cursor_col;
+
+        if (cursor_col < 0) {
+            cursor_col = VGA_WIDTH - 1;
+            --cursor_row;
+        }
+
+        print_char(' ', (cursor_col % 15) + 1);
         --cursor_col;
         
         

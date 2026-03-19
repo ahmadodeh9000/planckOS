@@ -38,7 +38,13 @@ enum vga_color {
 void putc(char c);
 void print(const char* str);
 void print_number(int number);
+void print_hex(uint32_t number);
+
+
+void putc_rainbow(char c);
 void print_rainbow(const char* str);
+void print_number_rainbow(int number);
+void print_hex_rainbow(uint32_t number);
 
 
 /* other functions */

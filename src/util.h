@@ -7,6 +7,8 @@
 void* kmemset(void* ptr, int32_t value, uint32_t count);
 void outportb(uint16_t port, uint8_t value);
 char inportb(uint16_t port);
+void printf(const char* fmt, ...);
+void printf_rainbow(const char* fmt, ...);
 
 typedef struct {
     uint32_t gs, fs, es, ds;          // pushed last (popped first)

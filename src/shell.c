@@ -8,12 +8,9 @@ static bool is_running = true;
 
 
 void print_info() {
-    print_rainbow(OS_NAME);
-    print(" ");
-    print(KERNEL_NAME);
-    print(" V ");
-    print(OS_VERSION);
-    print("\n");
+        
+    printf("OS: %s %s, Kernel : %s\n",OS_NAME,OS_VERSION,KERNEL_NAME);
+
 }
 
 void echo(const char* str) {
@@ -47,18 +44,14 @@ void help_shell() {
 
 void clear() {
     vga_clear();
-    print_rainbow(OS_NAME);
-    print_rainbow(" V ");
-    print_rainbow(OS_VERSION);
-    print("\n\n");
+    
+    printf_rainbow("%s V %s\n\n",OS_NAME,OS_VERSION);
+    
 }
 
 void init_shell() {
 
-    print_rainbow(OS_NAME);
-    print_rainbow(" V ");
-    print_rainbow(OS_VERSION);
-    print("\n\n");
+    clear();
 
 
     char in[256];
