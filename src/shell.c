@@ -4,10 +4,16 @@
 #include "keyboard.h"
 #include "util.h"
 
+
+static bool is_running = true;
+
+
 void print_info() {
-    print(OS_NAME);
+    print_rainbow(OS_NAME);
     print(" ");
     print(KERNEL_NAME);
+    print(" V ");
+    print(OS_VERSION);
     print("\n");
 }
 
@@ -33,12 +39,12 @@ void init_shell() {
 
 
     char in[256];
-    while (1) {
+    while (is_running) {
         print("> ");
         int len = readline(in);
 
         if (!len) continue;
-        
+
         if (strcmp(in,"info") == 0) {
             print_info();
         }

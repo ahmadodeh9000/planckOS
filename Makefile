@@ -4,6 +4,7 @@ all:
 	nasm -f elf32 boot/boot.s -o boot.o
 	nasm -f elf32 src/gdt/gdt.s -o gdts.o
 	nasm -f elf32 src/idt/idt.s -o idts.o
+	
 
 	$(CC) src/kernel.c -o kernel.o
 	$(CC) src/vga.c -o vga.o
