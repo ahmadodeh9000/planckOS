@@ -27,6 +27,7 @@ all:
 	$(CC) src/shell.c -o shell.o
 	$(CC) src/pmm.c -o pmm.o
 	$(CC) src/paging.c -o paging.o
+	$(CC) src/kmalloc.c -o kmalloc.o
 	
 	$(LD) -T link.ld -m elf_i386 -o kernel *.o
 	
