@@ -25,6 +25,7 @@ all:
 	$(CC) src/timer.c -o timer.o
 	$(CC) src/keyboard.c -o keyboard.o
 	$(CC) src/shell.c -o shell.o
+	$(CC) src/pmm.c -o pmm.o
 	
 	$(LD) -T link.ld -m elf_i386 -o kernel *.o
 	
