@@ -10,6 +10,8 @@ char inportb(uint16_t port);
 void printf(const char* fmt, ...);
 void printf_rainbow(const char* fmt, ...);
 
+#define __debug__
+
 typedef struct {
     uint32_t gs, fs, es, ds;          // pushed last (popped first)
     uint32_t edi, esi, ebp, esp,

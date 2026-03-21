@@ -76,6 +76,10 @@ void pmm_init(multiboot_info_t *mbi) {
     // Step 3: mark the first 1MB as used (BIOS, VGA buffer, etc. live here)
     // Even if GRUB said it's free, we must never touch it
     uint32_t low_pages = 0x100000 / PAGE_SIZE;  // 0x100000 = 1MB
+
+    uint32_t kstart = (uint32_t)&kernel_start / PAGE_SIZE;
+    uint32_t kend   = (uint32_t)&kernel_end   / PAGE_SIZE + 1;
+
     for (uint32_t i = 0; i < low_pages; i++) {
         if (!bitmap_test(i)) {
             bitmap_set(i);
@@ -83,7 +87,8 @@ void pmm_init(multiboot_info_t *mbi) {
         }
     }
 
-
+    printf("kernel start: %x\n",(uint32_t)&kernel_start );
+    printf("kernel end: %x\n",(uint32_t)&kernel_end);
     printf("PMM: initialized\n");
 }
 

@@ -3,6 +3,9 @@
 
 #include "common.h"
 
+extern uint32_t kernel_start;
+extern uint32_t kernel_end;
+
 // The full multiboot info structure GRUB gives us
 typedef struct {
     uint32_t flags;

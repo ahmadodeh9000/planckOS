@@ -4,6 +4,9 @@ ENTRY(start)
 SECTIONS
 {
 	. 	= 1M;
+
+	kernel_start = .;
+
 	.text	: 
 	{
 		*(.text)
@@ -16,6 +19,8 @@ SECTIONS
 	{
 		*(.bss)
 	}
+
+	kernel_end = .;
 
 
 
