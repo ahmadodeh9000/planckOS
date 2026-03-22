@@ -191,6 +191,9 @@ found:
     return file_size;
 }
 
+// ── Free a cluster chain safely ───────────────────────────────────────────────
+
+
 // Write a value into the FAT table for a given cluster
 static void fat_set_cluster(uint32_t cluster, uint32_t value) {
     uint32_t fat_offset = cluster * 4;
@@ -218,6 +221,7 @@ static uint32_t fat_find_free_cluster() {
     }
     return 0;  // disk full
 }
+
 
 // Convert a filename string into 8.3 format
 // e.g. "HELLO.TXT" → name[0..7]="HELLO   " name[8..10]="TXT"
@@ -276,111 +280,3 @@ static int fat_find_entry(const char *filename, uint32_t *out_lba,
     return 0;
 }
 
-
-int fat32_write_file(const char *filename, uint8_t *data, uint32_t size) {
-    uint8_t *dir_buf = (uint8_t *)kmalloc(bytes_per_cluster);
-    uint32_t entry_lba, entry_index;
-    uint32_t file_cluster;
-
-    if (fat_find_entry(filename, &entry_lba, &entry_index, dir_buf)) {
-        // File exists — reuse its cluster
-        fat32_entry_t *entries = (fat32_entry_t *)dir_buf;
-        file_cluster = ((uint32_t)entries[entry_index].cluster_high << 16)
-                      | entries[entry_index].cluster_low;
-
-        // Update file size in directory entry
-        entries[entry_index].file_size = size;
-        ata_write(entry_lba, sectors_per_cluster, (uint16_t *)dir_buf);
-
-    } else {
-        // File doesn't exist — allocate new cluster and directory entry
-        file_cluster = fat_find_free_cluster();
-        if (!file_cluster) {
-            printf("FAT32: disk full\n");
-            kfree(dir_buf);
-            return 0;
-        }
-        fat_set_cluster(file_cluster, 0x0FFFFFFF);
-
-        // Find a free directory slot
-        uint32_t cluster = root_cluster;
-        int slot_found = 0;
-
-        while (cluster < 0x0FFFFFF8 && !slot_found) {
-            uint32_t lba = cluster_to_lba(cluster);
-            ata_read(lba, sectors_per_cluster, (uint16_t *)dir_buf);
-
-            fat32_entry_t *entries = (fat32_entry_t *)dir_buf;
-            uint32_t entry_count   = bytes_per_cluster / sizeof(fat32_entry_t);
-
-            for (uint32_t i = 0; i < entry_count; i++) {
-                if (entries[i].name[0] == 0x00 || entries[i].name[0] == 0xE5) {
-                    char name83[11];
-                    to_83(filename, name83);
-                    for (int j = 0; j < 8; j++) entries[i].name[j] = name83[j];
-                    for (int j = 0; j < 3; j++) entries[i].ext[j]  = name83[8+j];
-                    entries[i].attributes   = 0x20;
-                    entries[i].reserved     = 0;
-                    entries[i].cluster_high = (file_cluster >> 16) & 0xFFFF;
-                    entries[i].cluster_low  = file_cluster & 0xFFFF;
-                    entries[i].file_size    = size;
-                    ata_write(lba, sectors_per_cluster, (uint16_t *)dir_buf);
-                    slot_found = 1;
-                    break;
-                }
-            }
-            cluster = fat_next_cluster(cluster);
-        }
-
-        if (!slot_found) {
-            printf("FAT32: no directory space\n");
-            kfree(dir_buf);
-            return 0;
-        }
-    }
-
-    // Write the actual data into the cluster
-    uint8_t *cluster_buf = (uint8_t *)kmalloc(bytes_per_cluster);
-    for (uint32_t i = 0; i < bytes_per_cluster; i++) cluster_buf[i] = 0;
-    uint32_t write_size = size < bytes_per_cluster ? size : bytes_per_cluster;
-    for (uint32_t i = 0; i < write_size; i++) cluster_buf[i] = data[i];
-    ata_write(cluster_to_lba(file_cluster), sectors_per_cluster,
-              (uint16_t *)cluster_buf);
-    kfree(cluster_buf);
-    kfree(dir_buf);
-
-    printf("FAT32: wrote %s (%d bytes)\n", filename, size);
-    return 1;
-}
-
-int fat32_delete_file(const char *filename) {
-    uint8_t *dir_buf = (uint8_t *)kmalloc(bytes_per_cluster);
-    uint32_t entry_lba, entry_index;
-
-    if (!fat_find_entry(filename, &entry_lba, &entry_index, dir_buf)) {
-        printf("FAT32: file not found\n");
-        kfree(dir_buf);
-        return 0;
-    }
-
-    fat32_entry_t *entries = (fat32_entry_t *)dir_buf;
-
-    // Get the file's starting cluster so we can free it in the FAT
-    uint32_t cluster = ((uint32_t)entries[entry_index].cluster_high << 16)
-                      | entries[entry_index].cluster_low;
-
-    // Mark directory entry as deleted (0xE5 = deleted in FAT32)
-    entries[entry_index].name[0] = 0xE5;
-    ata_write(entry_lba, sectors_per_cluster, (uint16_t *)dir_buf);
-    kfree(dir_buf);
-
-    // Free the cluster chain in the FAT table
-    while (cluster < 0x0FFFFFF8) {
-        uint32_t next = fat_next_cluster(cluster);
-        fat_set_cluster(cluster, 0);  // 0 = free
-        cluster = next;
-    }
-
-    printf("FAT32: deleted %s\n", filename);
-    return 1;
-}

@@ -44,6 +44,8 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
     keyboard_init();
     init_shell();
 
+    printf("outside shell \n");
+
     for (;;) asm volatile("hlt"); // halt CPU and wait for interrupts
     
 }

@@ -70,8 +70,6 @@ void help_shell() {
     print("     *) echo\n");
     print("     *) ls\n");
     print("     *) cat <filename>\n");
-    print("     *) write <filename> <text>\n");
-    print("     *) del <filename>\n");
 }
 
 void clear() {
@@ -128,27 +126,6 @@ void init_shell() {
         }
         else if (check_echo(in)) {
             echo(in);
-        }
-
-        else if (strncmp(in, "write ", 6) == 0) {
-            char *rest = in + 6;  // skip "write "
-
-            int space = -1;
-            for (int i = 0; rest[i]; i++) {
-                if (rest[i] == ' ') { space = i; break; }
-            }
-
-            if (space == -1) {
-                print("Usage: write FILENAME content\n");
-            } else {
-                rest[space] = '\0';          // split: rest = filename
-                char *content = rest + space + 1;  // content starts after space
-                fat32_write_file(rest, (uint8_t *)content, strlen(content));
-            }
-        }
-
-        else if (strncmp(in, "del ",4) == 0) {
-            fat32_delete_file(in + 4);
         }
 
         else {
