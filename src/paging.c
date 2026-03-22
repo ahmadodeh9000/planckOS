@@ -20,11 +20,11 @@ void paging_init() {
 
     for (uint32_t i = 0; i < 1024; ++i) {
         uint32_t physical_addr = i * PAGE_SIZE;
-        first_table[i] = physical_addr | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+        first_table[i] = physical_addr | PAGE_PRESENT | PAGE_WRITABLE ;
     }
 
 
-    page_directory[0] = (uint32_t)first_table | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+    page_directory[0] = (uint32_t)first_table | PAGE_PRESENT | PAGE_WRITABLE ;
 
     asm volatile("mov %0, %%cr3" :: "r"(page_directory));
 

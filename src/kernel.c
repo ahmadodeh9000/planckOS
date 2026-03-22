@@ -25,7 +25,7 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
     paging_init();
     heap_init();
    
-
+    user_app();
 
 
     for (;;) asm volatile("hlt"); // halt CPU and wait for interrupts
