@@ -62,4 +62,11 @@ uint32_t fat32_read_file(const char *filename, uint8_t *buffer);
 // List all files in the root directory
 void fat32_list_root();
 
+
+// Write a file
+int fat32_write_file(const char *filename, uint8_t *data, uint32_t size);
+
+// Delete a file
+int fat32_delete_file(const char *filename);
+
 #endif
