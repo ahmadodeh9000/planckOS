@@ -32,6 +32,7 @@ all:
 	$(CC) src/kmalloc.c -o kmalloc.o
 	$(CC) src/syscall.c -o syscall.o
 	$(CC) src/ata.c -o ata.o
+	$(CC) src/fat32.c -o fat32.o
 	
 	$(LD) -T link.ld -m elf_i386 -o kernel *.o
 	
@@ -40,5 +41,6 @@ all:
 	
 	rm *.o
 	
-	qemu-system-i386 planckOS.iso
+	qemu-system-i386 -boot d -cdrom planckOS.iso -hdb disk.img
+	#qemu-system-i386 planckOS.iso
 	

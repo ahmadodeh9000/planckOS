@@ -29,7 +29,7 @@ static void ata_wait() {
 }
 
 int ata_detect() {
-    outportb(ATA_DRIVE, 0xA0);  // select master drive
+    outportb(ATA_DRIVE, 0xB0);  // select master drive
     outportb(ATA_LBA_LOW,  0);
     outportb(ATA_LBA_MID,  0);
     outportb(ATA_LBA_HIGH, 0);
@@ -61,7 +61,7 @@ int ata_detect() {
 
 void ata_read(uint32_t lba, uint8_t count, uint16_t *buffer) {
     // Tell the drive what to read using LBA28 mode
-    outportb(ATA_DRIVE,        0xE0 | ((lba >> 24) & 0x0F)); // master + LBA bits 24-27
+    outportb(ATA_DRIVE,        0xF0 | ((lba >> 24) & 0x0F)); // master + LBA bits 24-27
     outportb(ATA_SECTOR_COUNT, count);
     outportb(ATA_LBA_LOW,      lba & 0xFF);           // bits 0-7
     outportb(ATA_LBA_MID,      (lba >> 8)  & 0xFF);   // bits 8-15
@@ -77,7 +77,7 @@ void ata_read(uint32_t lba, uint8_t count, uint16_t *buffer) {
 }
 
 void ata_write(uint32_t lba, uint8_t count, uint16_t *buffer) {
-    outportb(ATA_DRIVE,        0xE0 | ((lba >> 24) & 0x0F));
+    outportb(ATA_DRIVE,        0xF0 | ((lba >> 24) & 0x0F));
     outportb(ATA_SECTOR_COUNT, count);
     outportb(ATA_LBA_LOW,      lba & 0xFF);
     outportb(ATA_LBA_MID,      (lba >> 8)  & 0xFF);
