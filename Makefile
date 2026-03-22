@@ -14,6 +14,8 @@ all:
 	nasm -f elf32 boot/boot.s -o boot.o
 	nasm -f elf32 src/gdt/gdt.s -o gdts.o
 	nasm -f elf32 src/idt/idt.s -o idts.o
+	nasm -f elf32 src/test.s -o test.o
+
 	
 
 	$(CC) src/kernel.c -o kernel.o
@@ -28,6 +30,7 @@ all:
 	$(CC) src/pmm.c -o pmm.o
 	$(CC) src/paging.c -o paging.o
 	$(CC) src/kmalloc.c -o kmalloc.o
+	$(CC) src/syscall.c -o syscall.o
 	
 	$(LD) -T link.ld -m elf_i386 -o kernel *.o
 	

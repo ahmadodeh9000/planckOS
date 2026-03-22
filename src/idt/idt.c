@@ -1,5 +1,6 @@
 #include "idt.h"
-#include "../vga.h"
+#include "../util.h"
+#include "../syscall.h"
 
 #define IDT_ENTRIES 256
 
@@ -84,6 +85,10 @@ void isr_handler(registers_t* regs) {
         print("EXCPTION !!\nplanckOS has been halted !");
         for (;;) asm("hlt");
     }
+
+    if (regs->int_no == 128) {
+        syscall_handler(regs);
+    }
 }
 
 void set_idt_gate(int32_t n ,uint32_t handler) {
@@ -91,6 +96,14 @@ void set_idt_gate(int32_t n ,uint32_t handler) {
     idt_entries[n].selector             = 0x08;                     /* kernel code segment */
     idt_entries[n].zero                 = 0x00;
     idt_entries[n].type_attributees     = 0x8E;                     /* Interrupt gate */
+    idt_entries[n].high_offset          = (handler >> 16) & 0xFFFF;
+}
+
+void set_idt_gate_user(int32_t n ,uint32_t handler) {
+    idt_entries[n].low_offset           = handler & 0xFFFF;
+    idt_entries[n].selector             = 0x08;                     /* kernel code segment */
+    idt_entries[n].zero                 = 0x00;
+    idt_entries[n].type_attributees     = 0xEE;                     /* Interrupt gate */
     idt_entries[n].high_offset          = (handler >> 16) & 0xFFFF;
 }
 
@@ -150,6 +163,8 @@ void idt_init() {
     set_idt_gate(29, (uint32_t)isr29);
     set_idt_gate(30, (uint32_t)isr30);
     set_idt_gate(31, (uint32_t)isr31);
+
+    set_idt_gate_user(128,(uint32_t) isr128);
 
     // IRQ0–IRQ15 (timer, keyboard, etc.)
     set_idt_gate(32, (uint32_t)irq0);
