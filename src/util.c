@@ -106,3 +106,13 @@ char inportb(uint16_t port) {
     return rv;
 
 }
+
+uint16_t inportw(uint16_t port) {
+    uint16_t result;
+    asm volatile("inw %1, %0" : "=a"(result) : "Nd"(port));
+    return result;
+}
+
+void outportw(uint16_t port, uint16_t value) {
+    asm volatile("outw %0, %1" :: "a"(value), "Nd"(port));
+}

@@ -7,6 +7,10 @@
 void* kmemset(void* ptr, int32_t value, uint32_t count);
 void outportb(uint16_t port, uint8_t value);
 char inportb(uint16_t port);
+
+uint16_t inportw(uint16_t port);
+void outportw(uint16_t port, uint16_t value);
+
 void printf(const char* fmt, ...);
 void printf_rainbow(const char* fmt, ...);
 

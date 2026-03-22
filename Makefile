@@ -31,6 +31,7 @@ all:
 	$(CC) src/paging.c -o paging.o
 	$(CC) src/kmalloc.c -o kmalloc.o
 	$(CC) src/syscall.c -o syscall.o
+	$(CC) src/ata.c -o ata.o
 	
 	$(LD) -T link.ld -m elf_i386 -o kernel *.o
 	

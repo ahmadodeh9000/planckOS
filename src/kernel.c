@@ -9,6 +9,7 @@
 #include "paging.h"
 #include "kmalloc.h"
 #include "syscall.h"
+#include "ata.h"
 
 extern void user_app();
 
@@ -24,8 +25,9 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
     pmm_init((multiboot_info_t *)mbi_addr);  // <-- add this
     paging_init();
     heap_init();
-   
-    user_app();
+
+    if (ata_detect()) printf("disk found\n");
+    else printf("no disk niggers\n");
 
 
     for (;;) asm volatile("hlt"); // halt CPU and wait for interrupts
