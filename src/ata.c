@@ -85,8 +85,12 @@ void ata_write(uint32_t lba, uint8_t count, uint16_t *buffer) {
     outportb(ATA_COMMAND,      ATA_CMD_WRITE);
 
     for (int s = 0; s < count; s++) {
-        ata_wait();
+        ata_wait();  // wait for drive ready + DRQ
         for (int i = 0; i < 256; i++)
             outportw(ATA_DATA, buffer[s * 256 + i]);
     }
+
+    // flush write cache — tells drive to commit data to disk
+    outportb(ATA_COMMAND, 0xE7);
+    while (inportb(ATA_STATUS) & ATA_SR_BSY);  // wait for flush to complete
 }

@@ -32,7 +32,7 @@ all:
 	$(CC) src/kmalloc.c -o kmalloc.o
 	$(CC) src/syscall.c -o syscall.o
 	$(CC) src/ata.c -o ata.o
-	$(CC) src/fat32.c -o fat32.o
+	$(CC) src/fat12.c -o fat12.o
 	
 	$(LD) -T link.ld -m elf_i386 -o kernel *.o
 	

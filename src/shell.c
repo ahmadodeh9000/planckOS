@@ -3,134 +3,148 @@
 #include "keyboard.h"
 #include "util.h"
 #include "kmalloc.h"
-#include "fat32.h"
+#include "fat12.h"
+
+#define CAT_BUF_SIZE (512 * 16)   /* 8 KB — adjust if you need bigger files */
 
 static bool is_running = true;
 
+/* ── helpers ──────────────────────────────────────────── */
 
-void print_info() {
-        
-    printf("OS: %s %s, Kernel : %s\n",OS_NAME,OS_VERSION,KERNEL_NAME);
-
+/* Skip leading spaces, return pointer to first non-space. */
+static const char *ltrim(const char *s) {
+    while (*s == ' ') s++;
+    return s;
 }
 
-void catt(const char* filename) {
-    uint8_t* buf = (uint8_t*) kmalloc(512 * 16);
-    uint32_t size = fat32_read_file(filename, buf);
+/* Return 1 if 'cmd' starts with 'prefix' followed by a space or NUL. */
+static int starts_with(const char *cmd, const char *prefix) {
+    uint32_t n = strlen(prefix);
+    return strncmp(cmd, prefix, n) == 0 && (cmd[n] == ' ' || cmd[n] == '\0');
+}
 
-    if (size) {
+/* ── built-in commands ────────────────────────────────── */
+
+static void cmd_info(void) {
+    printf("OS: %s %s   Kernel: %s\n", OS_NAME, OS_VERSION, KERNEL_NAME);
+}
+
+static void cmd_help(void) {
+    print("Available commands:\n");
+    print("  info               - show OS info\n");
+    print("  clear              - clear the screen\n");
+    print("  echo <text>        - print text on the screen\n");
+    print("  ls                 - list files\n");
+    print("  cat <file>         - print file contents\n");
+    print("  write <file> <txt> - write text to file\n");
+    print("  help               - show this message\n");
+}
+
+static void cmd_clear(void) {
+    vga_clear();
+    printf_rainbow("%s V %s\n\n", OS_NAME, OS_VERSION);
+}
+
+static void cmd_echo(const char *arg) {
+    arg = ltrim(arg);
+    if (!*arg) {
+        putc('\n');
+        return;
+    }
+    printf("%s\n", arg);
+}
+
+static void cmd_cat(const char *arg) {
+    arg = ltrim(arg);
+    if (!*arg) {
+        print("Usage: cat <filename>\n");
+        return;
+    }
+
+    /* +1 so we can safely NUL-terminate up to CAT_BUF_SIZE bytes of content */
+    uint8_t *buf = (uint8_t *)kmalloc(CAT_BUF_SIZE + 1);
+    if (!buf) {
+        print("cat: out of memory\n");
+        return;
+    }
+
+    uint32_t size = fat12_read(arg, buf);
+    if (!size) {
+        printf("cat: file not found: %s\n", arg);
+    } else {
+        /* Clamp to buffer capacity before NUL-terminating */
+        if (size > CAT_BUF_SIZE) size = CAT_BUF_SIZE;
         buf[size] = '\0';
-        printf("%s\n",buf);
+        printf("%s\n", (char *)buf);
     }
 
     kfree(buf);
-
 }
 
-void cat(const char* fname) {
-    if (strlen(fname) == 4) return;
-
-    for (uint32_t i = 5; fname[i] != '\0'; ++i) {
-        putc(fname[i]);
-    }
-    putc('\n');
-}
-
-void echo(const char* str) {
-
-    if (strlen(str) == 5) return;
-
-    for (uint32_t i = 5; str[i] != '\0'; ++i) {
-        putc(str[i]);
-    }
-    putc('\n');
-}
-
-const char* get_arg(const char* cmd, uint32_t cmd_len) {
-    return (cmd + cmd_len + 1);
-}
-
-
-bool check_echo(const char* str) {
-    bool is_echo = true;
-    char* echo_str = "echo ";
-
-    for (int i = 0; i < 5; ++i) {
-        if (str[i] != echo_str[i]) {
-            is_echo = false;
-        }
+static void cmd_write(const char *arg) {
+    arg = ltrim(arg);
+    if (!*arg) {
+        print("Usage: write <filename> <content>\n");
+        return;
     }
 
-    return is_echo;
-}
+    /* Find the space that separates filename from content */
+    const char *p = arg;
+    while (*p && *p != ' ') p++;
 
-void help_shell() {
-    print("     *) info\n");
-    print("     *) clear\n");
-    print("     *) echo\n");
-    print("     *) ls\n");
-    print("     *) cat <filename>\n");
-}
-
-void clear() {
-    vga_clear();
-    
-    printf_rainbow("%s V %s\n\n",OS_NAME,OS_VERSION);
-    
-}
-
-bool check_cat(const char* str) {
-    const char* cat_str = "cat ";
-    bool is_cat = true;
-
-    for (int i = 0;  i < 4; ++i) {
-        if (cat_str[i] != str[i]) {
-            is_cat = false;
-        }
+    if (!*p) {
+        print("Usage: write <filename> <content>\n");
+        return;
     }
 
-    return is_cat;
+    /* Copy filename into a small stack buffer */
+    uint32_t name_len = (uint32_t)(p - arg);
+    if (name_len >= 13) {
+        print("write: filename too long (max 12 chars)\n");
+        return;
+    }
+    char fname[13];
+    for (uint32_t i = 0; i < name_len; i++) fname[i] = arg[i];
+    fname[name_len] = '\0';
+
+    const char *content = ltrim(p + 1);
+    if (!*content) {
+        print("write: no content provided\n");
+        return;
+    }
+
+    fat12_write(fname, (uint8_t *)content, strlen(content));
 }
 
-void init_shell() {
+/* ── main shell loop ──────────────────────────────────── */
 
-    clear();
-
+void init_shell(void) {
+    cmd_clear();
 
     char in[256];
+
     while (is_running) {
         print("> ");
         int len = readline(in);
-
         if (!len) continue;
 
-        if (strcmp(in,"info") == 0) {
-            print_info();
+        if (strcmp(in, "info") == 0) {
+            cmd_info();
+        } else if (strcmp(in, "help") == 0) {
+            cmd_help();
+        } else if (strcmp(in, "clear") == 0) {
+            cmd_clear();
+        } else if (strcmp(in, "ls") == 0) {
+            fat12_list();
+        } else if (starts_with(in, "echo")) {
+            cmd_echo(in + 4);
+        } else if (starts_with(in, "cat")) {
+            cmd_cat(in + 3);
+        } else if (starts_with(in, "write")) {
+            cmd_write(in + 5);
+        } else {
+            printf("Unknown command: %s\n", in);
+            print("Type 'help' for a list of commands.\n");
         }
-
-        else if (strcmp(in,"help") == 0) {
-            help_shell();
-        }
-
-        else if (strcmp(in,"ls") == 0) {
-            fat32_list_root();
-        }
-
-        else if (check_cat(in)) {
-            
-            catt(get_arg(in,3));
-        }
-
-        else if (strcmp(in,"clear") == 0) {
-            clear();
-        }
-        else if (check_echo(in)) {
-            echo(in);
-        }
-
-        else {
-            print("Unknown Command !\n");
-        }
-        
     }
 }
