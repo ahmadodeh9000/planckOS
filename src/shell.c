@@ -5,7 +5,7 @@
 #include "kmalloc.h"
 #include "fat12.h"
 
-#define CAT_BUF_SIZE (512 * 16)   /* 8 KB — adjust if you need bigger files */
+#define CAT_BUF_SIZE (512 * 16)   /* 8 KB — adjust if bigger files */
 
 static bool is_running = true;
 
@@ -17,7 +17,7 @@ static const char *ltrim(const char *s) {
     return s;
 }
 
-/* Return 1 if 'cmd' starts with 'prefix' followed by a space or NUL. */
+/* Return 1 if 'cmd' starts with 'prefix' followed by a space or NULL. */
 static int starts_with(const char *cmd, const char *prefix) {
     uint32_t n = strlen(prefix);
     return strncmp(cmd, prefix, n) == 0 && (cmd[n] == ' ' || cmd[n] == '\0');
@@ -134,7 +134,7 @@ void init_shell(void) {
     char in[256];
 
     while (is_running) {
-        print("> ");
+        printf("%s> ",KERNEL_NAME);
         int len = readline(in);
         if (!len) continue;
 

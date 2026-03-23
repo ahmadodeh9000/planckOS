@@ -19,6 +19,21 @@ void set_back_ground_color(uint8_t bg , uint8_t fg) {
 }
 */
 
+static void vga_scroll() {
+    uint16_t* vga = (uint16_t*) VGA_MEMORY;
+    uint8_t clr = (VGA_COLOR_BLACK << 4) | VGA_COLOR_WHITE;
+
+    for (int row = 1; row < VGA_HEIGHT; row++) {
+        for (int col = 0; col < VGA_WIDTH; col++) {
+            vga[(row - 1) * VGA_WIDTH + col] = vga[row * VGA_WIDTH + col];
+        }
+    }
+
+    for (int col = 0; col < VGA_WIDTH; col++) {
+        vga[(VGA_HEIGHT - 1) * VGA_WIDTH + col] = (clr << 8) | ' ';
+    }
+}
+
 void vga_clear() {
     uint16_t* vga = (uint16_t*) VGA_MEMORY;
     uint8_t clr = (VGA_COLOR_BLACK << 4) | VGA_COLOR_WHITE; /* white on black*/
@@ -46,16 +61,27 @@ void vga_unpdate_cursor(int row, int col) {
 
 /* prints a single char */
 void print_char(const char c,uint8_t clr) {
-    
+
     if (cursor_col >= VGA_WIDTH) {
         cursor_row++;
         cursor_col = 0;
         
     }
 
+    if (cursor_row >= VGA_HEIGHT) {
+        vga_scroll();
+        cursor_row = VGA_HEIGHT - 1;
+    }
+
     if(c == '\n') {
         cursor_row ++;
         cursor_col = 0;
+
+        if (cursor_row >= VGA_HEIGHT) {
+            vga_scroll();
+            cursor_row = VGA_HEIGHT - 1;
+        }
+
         vga_unpdate_cursor(cursor_row,cursor_col);
         
 
