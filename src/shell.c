@@ -37,12 +37,22 @@ static void cmd_help(void) {
     print("  ls                 - list files\n");
     print("  cat <file>         - print file contents\n");
     print("  write <file> <txt> - write text to file\n");
+    print("  del <file>         - delete a file\n");
     print("  help               - show this message\n");
 }
 
 static void cmd_clear(void) {
     vga_clear();
     printf_rainbow("%s V %s\n\n", OS_NAME, OS_VERSION);
+}
+
+static void cmd_del(const char *arg) {
+    arg = ltrim(arg);
+    if (!*arg) {
+        print("Usage: del <filename>\n");
+        return;
+    }
+    fat12_delete(arg);
 }
 
 static void cmd_echo(const char *arg) {
@@ -141,8 +151,11 @@ void init_shell(void) {
         } else if (starts_with(in, "cat")) {
             cmd_cat(in + 3);
         } else if (starts_with(in, "write")) {
-            cmd_write(in + 5);
-        } else {
+           cmd_write(in + 5);
+        } else if (starts_with(in, "del")) {
+            cmd_del(in + 3);
+        }
+        else {
             printf("Unknown command: %s\n", in);
             print("Type 'help' for a list of commands.\n");
         }

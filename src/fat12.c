@@ -384,3 +384,46 @@ void fat12_list(void) {
 
     kfree(buffer);
 }
+
+int fat12_delete(const char *name) {
+    char n83[11];
+    to_83(name, n83);
+
+    uint8_t *dir = (uint8_t *)kmalloc(root_size * 512);
+    for (uint32_t i = 0; i < root_size; i++)
+        ata_read(root_start + i, 1, (uint16_t *)(dir + i * 512));
+
+    fat12_entry_t *e     = (fat12_entry_t *)dir;
+    uint32_t       n_ent = root_size * 512 / sizeof(fat12_entry_t);
+
+    for (uint32_t i = 0; i < n_ent; i++) {
+        if (e[i].name[0] == 0x00) break;
+        if ((uint8_t)e[i].name[0] == 0xE5) continue;
+        if (e[i].attributes == 0x0F) continue;
+
+        int match = 1;
+        for (int j = 0; j < 8; j++)
+            if (e[i].name[j] != n83[j]) { match = 0; break; }
+        if (match)
+            for (int j = 0; j < 3; j++)
+                if (e[i].ext[j] != n83[8 + j]) { match = 0; break; }
+
+        if (match) {
+            free_chain(e[i].start_cluster);  // free clusters in FAT
+            e[i].name[0] = 0xE5;             // mark entry as deleted
+
+            // flush only the sector containing this entry
+            uint32_t sec = i / (512 / sizeof(fat12_entry_t));
+            ata_write(root_start + sec, 1,
+                      (uint16_t *)(dir + sec * 512));
+
+            kfree(dir);
+            printf("FAT12: deleted %s\n", name);
+            return 1;
+        }
+    }
+
+    kfree(dir);
+    printf("FAT12: file not found\n");
+    return 0;
+}
