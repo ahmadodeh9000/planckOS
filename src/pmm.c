@@ -87,8 +87,6 @@ void pmm_init(multiboot_info_t *mbi) {
         }
     }
 
-    printf("kernel start: %x\n",(uint32_t)&kernel_start );
-    printf("kernel end: %x\n",(uint32_t)&kernel_end);
     printf("PMM: initialized\n");
 }
 

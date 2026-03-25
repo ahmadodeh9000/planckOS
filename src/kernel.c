@@ -12,6 +12,21 @@
 #include "ata.h"
 #include "fat12.h"
 
+#if defined(__linux__)
+#error "you should compile it with a cross compiler"
+#endif
+
+
+#if defined(__darwin__)
+#error "you should use a corss compiler"
+#endif
+
+
+#if !defined(__i386__)
+#error "This needs to be compiled with a ix86-elf compiler"
+#endif
+
+
 extern void user_app();
 
 
@@ -28,7 +43,7 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
     heap_init();
 
     if (ata_detect()) printf("disk found\n");
-    else printf("no disk niggers\n");
+    else printf("no disk \n");
 
     fat12_init();
 

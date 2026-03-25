@@ -8,8 +8,8 @@ static block_header* heap_start = NULL;
 
 void heap_init() {
 
-    printf("heap_start: 0x%x\n", (uint32_t)&kernel_end);
-    printf("heap_end:   0x%x\n", (uint32_t)&kernel_end + HEAP_SIZE);
+    printf("heap_start: %x\n", (uint32_t)&kernel_end);
+    printf("heap_end:   %x\n", (uint32_t)&kernel_end + HEAP_SIZE);
 
 
     heap_start       = (block_header*) &kernel_end;

@@ -53,7 +53,7 @@ const char* exception_messages[32] = {
     "No Coprocessor",                  // 7
     "Double Fault",                    // 8
     "Coprocessor Segment Overrun",     // 9
-    "Bad TSS",                          // 10
+    "Bad TSS",                         // 10
     "Segment Not Present",             // 11
     "Stack Fault",                     // 12
     "General Protection Fault",        // 13
@@ -82,7 +82,7 @@ void isr_handler(registers_t* regs) {
     if (regs->int_no < 32) {
         print(exception_messages[regs->int_no]);
         print("\n");
-        print("EXCPTION !!\nplanckOS has been halted !");
+        print("EXCEPTION !!\nplanckOS has been halted !");
         for (;;) asm("hlt");
     }
 
