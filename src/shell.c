@@ -134,7 +134,7 @@ void init_shell(void) {
     char in[256];
 
     while (is_running) {
-        printf("%s> ",KERNEL_NAME);
+        printf("> ");
         int len = readline(in);
         if (!len) continue;
 
