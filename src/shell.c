@@ -38,6 +38,7 @@ static void cmd_help(void) {
     print("  cat <file>         - print file contents\n");
     print("  write <file> <txt> - write text to file\n");
     print("  del <file>         - delete a file\n");
+    print("  quit               - shutdown the os\n");
     print("  help               - show this message\n");
 }
 
@@ -91,6 +92,16 @@ static void cmd_cat(const char *arg) {
     kfree(buf);
 }
 
+/* shutdown the os !*/
+
+static void cmd_quit(void) {
+    outportw(0x604,0x2000);     // qemu
+
+    for (;;) {
+        __asm__ volatile ("cli;hlt");
+    }
+}
+
 static void cmd_write(const char *arg) {
     arg = ltrim(arg);
     if (!*arg) {
@@ -142,6 +153,8 @@ void init_shell(void) {
             cmd_info();
         } else if (strcmp(in, "help") == 0) {
             cmd_help();
+        } else if (strcmp(in, "quit") == 0) {
+            cmd_quit();
         } else if (strcmp(in, "clear") == 0) {
             cmd_clear();
         } else if (strcmp(in, "ls") == 0) {
