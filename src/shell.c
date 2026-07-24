@@ -26,7 +26,13 @@ static int starts_with(const char *cmd, const char *prefix) {
 /* ── built-in commands ────────────────────────────────── */
 
 static void cmd_info(void) {
-    printf("OS: %s %s   Kernel: %s\n", OS_NAME, OS_VERSION, KERNEL_NAME);
+    // printf("OS: %s %s   Kernel: %s\n", OS_NAME, OS_VERSION, KERNEL_NAME);
+	printf("********************************************\n");
+	printf("* AUTHOR:   Ahmad Odeh                     *\n");
+	printf_rainbow("* OS:       %s                       *\n",OS_NAME);
+	printf("* VERSION:  %s                          *\n",OS_VERSION);
+	printf("* KERNEL:   %s                           *\n",KERNEL_NAME);
+	printf("********************************************\n");
 }
 
 static void cmd_help(void) {
