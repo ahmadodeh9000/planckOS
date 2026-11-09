@@ -2,6 +2,7 @@
 #include "drivers/ata.h"
 #include "mm/kmalloc.h"
 #include "lib/util.h"
+#include "drivers/serial.h"
 
 /* ───────────────────────────────────────────────
    All layout values are derived from the BPB
@@ -153,7 +154,7 @@ void fat12_init(void) {
         ata_read(fat_start + i, 1,
                  (uint16_t *)(fat_buffer + i * 512));
 
-    printf("FAT12 ready - %d clusters\n", total_clusters);
+    serial_printf("fat12: %u clusters of %u bytes\n", total_clusters, cluster_size);
 }
 
 /* ───────────────────────────────────────────────

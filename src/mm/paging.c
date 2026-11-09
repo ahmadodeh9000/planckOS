@@ -1,7 +1,7 @@
 #include "mm/paging.h"
 #include "mm/pmm.h"
 #include "lib/common.h"
-#include "lib/util.h"
+#include "drivers/serial.h"
 
 #define PAGE_SIZE   4096
 #define PAGE_PRESENT    (1 << 0)        /* page exist           */
@@ -33,5 +33,5 @@ void paging_init() {
     cr0 |= (1 << 31);
     asm volatile("mov %0, %%cr0" :: "r"(cr0));
 
-    printf("paging works\n");
+    serial_printf("paging: enabled\n");
 }

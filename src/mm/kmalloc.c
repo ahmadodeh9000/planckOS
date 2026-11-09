@@ -1,5 +1,6 @@
 #include "mm/kmalloc.h"
 #include "lib/util.h"
+#include "drivers/serial.h"
 
 extern uint32_t kernel_end;
 
@@ -8,8 +9,7 @@ static block_header* heap_start = NULL;
 
 void heap_init() {
 
-    printf("heap_start: %x\n", (uint32_t)&kernel_end);
-    printf("heap_end:   %x\n", (uint32_t)&kernel_end + HEAP_SIZE);
+    serial_printf("heap: %x - %x\n", (uint32_t)&kernel_end, (uint32_t)&kernel_end + HEAP_SIZE);
 
 
     heap_start       = (block_header*) &kernel_end;

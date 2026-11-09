@@ -1,5 +1,6 @@
 #include "mm/pmm.h"
 #include "lib/util.h"
+#include "drivers/serial.h"
 
 /* constants for paging*/
 
@@ -87,7 +88,7 @@ void pmm_init(multiboot_info_t *mbi) {
         }
     }
 
-    printf("PMM: initialized\n");
+    serial_printf("pmm: %u pages total, %u used\n", total_pages, used_pages);
 }
 
 void* pmm_alloc_page() {
