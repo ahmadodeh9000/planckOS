@@ -47,7 +47,7 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
 
     keyboard_init();
     serial_printf("keyboard: ready, starting shell\n");
-    init_shell();
+    shell_run();
 
     for (;;) asm volatile("hlt"); // halt CPU and wait for interrupts
 }
