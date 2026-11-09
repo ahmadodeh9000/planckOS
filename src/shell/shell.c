@@ -150,7 +150,7 @@ static void cmd_write(const char *arg) {
 void init_shell(void) {
     cmd_clear();
 
-    char in[256];
+    char in[KEYBOARD_LINE_MAX];
 
     while (is_running) {
         printf("> ");
