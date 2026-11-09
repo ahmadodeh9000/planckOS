@@ -32,6 +32,7 @@ struct window {
     void (*on_key)(window_t* win, char key);
     void (*on_mouse)(window_t* win, const event_t* e);  /* x, y relative to content */
     void (*on_close)(window_t* win);                    /* free win->data */
+    void (*on_timer)(window_t* win);                    /* once a second */
 };
 
 /* Tell the window manager how big the desktop is (the screen minus the

@@ -6,9 +6,11 @@
 #include "apps/demo.h"
 #include "apps/terminal.h"
 #include "apps/notepad.h"
+#include "apps/files.h"
 
 const app_entry app_list[] = {
     { "Terminal",    terminal_open },
+    { "Files",       files_open },
     { "Notepad",     notepad_open },
     { "Widget demo", demo_open },
 };

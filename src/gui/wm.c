@@ -257,6 +257,21 @@ static bool wm_mouse_up(const event_t* e) {
     return true;
 }
 
+/* Give every window its once-a-second tick. Returns true if any of them
+   asked to be repainted. */
+static bool wm_timer(void) {
+    bool changed = false;
+
+    for (int i = 0; i < window_count; i++) {
+        window_t* win = windows[i];
+        if (win->on_timer) {
+            win->on_timer(win);
+            changed |= win->dirty;
+        }
+    }
+    return changed;
+}
+
 bool wm_handle_event(const event_t* e) {
     switch (e->type) {
         case EVENT_MOUSE_DOWN:
@@ -265,6 +280,8 @@ bool wm_handle_event(const event_t* e) {
             return wm_mouse_move(e);
         case EVENT_MOUSE_UP:
             return wm_mouse_up(e);
+        case EVENT_TIMER:
+            return wm_timer();
         case EVENT_KEY: {
             window_t* focused = wm_focused();
             if (focused && focused->on_key) {

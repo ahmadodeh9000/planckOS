@@ -42,6 +42,7 @@ and handles focus, raising, dragging by the title bar and the close button.
 | `on_key(win, key)` | A key was typed while this window had focus. |
 | `on_mouse(win, e)` | Press/release in the content, and moves while the button is held. `e->x/y` are relative to the content's top-left. |
 | `on_close(win)` | The window is closing: free `win->data`. |
+| `on_timer(win)` | Called once a second (on `EVENT_TIMER`). Call `window_invalidate` if the content should change. |
 
 All callbacks are optional.
 
@@ -80,6 +81,7 @@ All callbacks are optional.
 | `window_create(title, w, h)` | Open a window with a `w x h` content area. Fill in the callbacks afterwards. |
 | `window_close(win)` | Call `on_close`, free it, remove it. Safe to call from the window's own callbacks. |
 | `window_raise(win)` | Bring to front and focus. |
+| `window_set_title(win, title)` | Change the title bar text. |
 | `window_invalidate(win)` | Repaint the content on the next frame. |
 | `wm_handle_event(e)` | Route an input event; returns whether the screen changed. |
 | `wm_draw(screen)` | Paint dirty windows and draw all of them. |

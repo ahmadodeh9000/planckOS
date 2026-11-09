@@ -58,3 +58,27 @@ Files app opens existing files in it (`notepad_open_file(name)`).
 **Known limits.** You can only edit at the end (no cursor movement: the
 keyboard driver doesn't report arrow keys yet). No scrolling back to
 earlier lines in long files. 8 KB maximum.
+
+## Files — `apps/files.c`
+
+**What it does.** Lists the files on the FAT12 disk with their sizes.
+Click to select, double-click or press **Open** to edit in Notepad,
+**Delete** to remove the selected file, and **Up/Down** to page through
+long lists.
+
+**How it works.**
+
+- *The list.* `files_reload()` calls `fat12_list()` into a temporary
+  buffer and compares it with what's shown. Only if something changed does
+  it copy it over and rebuild the display lines (`"NAME.TXT      123 B"`).
+  It runs once a second from `on_timer`, so files written from Notepad or a
+  Terminal appear by themselves, and the window only repaints when the
+  directory actually changed.
+- *Double-click.* There's no double-click event. Files remembers which row
+  was clicked last and at which `timer_ticks()`. A second click on the same
+  row within half a second (`DOUBLE_CLICK_TICKS`) counts as a double-click.
+- *Opening* calls `notepad_open_file(name)`. That's how apps use each
+  other: through the other app's public header.
+
+**Known limits.** Up to 128 files are shown. Delete doesn't ask for
+confirmation.
