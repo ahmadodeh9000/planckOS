@@ -31,5 +31,6 @@ typedef struct {
 void pmm_init(multiboot_info_t *mbi);
 void *pmm_alloc_page();
 void pmm_free_page(void* addr);
+void pmm_reserve_region(uint32_t start, uint32_t size);
 
 #endif
