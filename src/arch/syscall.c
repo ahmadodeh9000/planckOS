@@ -11,7 +11,7 @@ void syscall_handler(registers_t* regs) {
             break;
         
         case SYS_PRINT_HEX:
-            printf("%x\n",(char*)regs->ebx);
+            printf("%x\n", regs->ebx);
             break;
 
         case SYS_MALLOC:
