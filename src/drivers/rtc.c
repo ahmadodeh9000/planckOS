@@ -37,6 +37,13 @@
 #define RTC_CENTURY         2000    /* the chip only stores two year digits */
 #define BCD_LOW_DIGIT       0x0F    /* BCD keeps one decimal digit per nibble */
 #define BCD_HIGH_SHIFT      4
+#define MONTHS_PER_YEAR     12
+#define MONTH_NAME_LEN      3
+
+static const char* const month_names[MONTHS_PER_YEAR] = {
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+};
 
 static uint8_t cmos_read(uint8_t reg) {
     outportb(CMOS_ADDRESS_PORT, reg);
@@ -113,6 +120,22 @@ void rtc_format_clock(const rtc_time_t* t, char* out) {
     out[2] = ':';
     put_two_digits(out + 3, t->minute);
     out[RTC_CLOCK_LEN] = '\0';
+}
+
+void rtc_format_day(const rtc_time_t* t, char* out) {
+    /* Months are 1-12; anything else means the chip gave us garbage. */
+    const char* month = (t->month >= 1 && t->month <= MONTHS_PER_YEAR)
+                        ? month_names[t->month - 1] : "???";
+
+    put_two_digits(out, t->day);
+    out[2] = ' ';
+    for (int i = 0; i < MONTH_NAME_LEN; i++) {
+        out[3 + i] = month[i];
+    }
+    out[6] = ' ';
+    put_two_digits(out + 7, t->year / 100);
+    put_two_digits(out + 9, t->year % 100);
+    out[RTC_DAY_LEN] = '\0';
 }
 
 void rtc_format_date(const rtc_time_t* t, char* out) {

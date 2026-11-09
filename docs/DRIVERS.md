@@ -120,6 +120,7 @@ Under QEMU the RTC starts from the host's clock. The Makefile passes
 |----------|---------|
 | `rtc_read(&t)` | Fill an `rtc_time_t` (second, minute, hour, day, month, year). Slow port I/O: never call it from an IRQ handler. |
 | `rtc_format_clock(&t, buf)` | `"HH:MM"` (`RTC_CLOCK_LEN` + 1 bytes), used by the taskbar. |
+| `rtc_format_day(&t, buf)` | `"DD Mon YYYY"`, e.g. `"09 Nov 2026"` (`RTC_DAY_LEN` + 1 bytes), used by the taskbar. |
 | `rtc_format_date(&t, buf)` | `"YYYY-MM-DD HH:MM:SS"` (`RTC_DATE_LEN` + 1 bytes), used by the shell's `date`. |
 
 **Extending it.** Register `0x32` holds the century on most PCs (the ACPI

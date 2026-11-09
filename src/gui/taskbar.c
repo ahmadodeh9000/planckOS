@@ -24,9 +24,11 @@
 #define WINDOW_BUTTON_WIDTH 150
 #define TEXT_PADDING        8
 #define MAX_TASK_BUTTONS    16
+#define CLOCK_GAP           "  "    /* "09 Nov 2026  14:57" */
+#define CLOCK_TEXT_LEN      (RTC_DAY_LEN + sizeof(CLOCK_GAP) - 1 + RTC_CLOCK_LEN)
 
 static rect_t bar;
-static char clock_text[RTC_CLOCK_LEN + 1];      /* "HH:MM" */
+static char clock_text[CLOCK_TEXT_LEN + 1];
 
 static rect_t launcher_button(void) {
     rect_t r = { BUTTON_GAP, bar.y + BUTTON_MARGIN_Y, LAUNCHER_WIDTH,
@@ -45,8 +47,13 @@ void taskbar_init(int screen_width, int screen_height) {
 
 void taskbar_update_clock(void) {
     rtc_time_t now;
+    char time[RTC_CLOCK_LEN + 1];
+
     rtc_read(&now);
-    rtc_format_clock(&now, clock_text);
+    rtc_format_day(&now, clock_text);
+    rtc_format_clock(&now, time);
+    strcat(clock_text, CLOCK_GAP);
+    strcat(clock_text, time);
 }
 
 static rect_t window_button(int slot) {
@@ -109,6 +116,6 @@ void taskbar_draw(surface_t* screen) {
         taskbar_button(screen, window_button(i), list[i]->title, color);
     }
 
-    font_draw_text(screen, bar.w - (RTC_CLOCK_LEN + 1) * FONT_WIDTH,
+    font_draw_text(screen, bar.w - (CLOCK_TEXT_LEN + 1) * FONT_WIDTH,
                    bar.y + (bar.h - FONT_HEIGHT) / 2, clock_text, THEME_TEXT_LIGHT);
 }

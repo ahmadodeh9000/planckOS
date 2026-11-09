@@ -131,7 +131,7 @@ say) would be more ASCII-art tables plus a way for windows to choose one.
 
 **What it does.** The 28 px bar at the bottom of the screen, from left to
 right: the launcher button, one button per open window, and a clock
-showing the time of day (`HH:MM`).
+showing the date and time (`09 Nov 2026  14:57`).
 
 **How it works.**
 
@@ -146,7 +146,8 @@ showing the time of day (`HH:MM`).
   dragged under the bar (`wm_init` gets the screen height minus the bar).
 - *The clock.* The PIT handler pushes an `EVENT_TIMER` once a second. On
   that event `gui_dispatch` calls `taskbar_update_clock()`, which reads the
-  CMOS real-time clock (`drivers/rtc.c`) and keeps the `"HH:MM"` text.
+  CMOS real-time clock (`drivers/rtc.c`) and keeps the
+  `"DD Mon YYYY  HH:MM"` text.
   `taskbar_draw` only draws that cached text. The taskbar is redrawn on
   every mouse move, and reading the RTC each time would mean slow port I/O
   per frame.

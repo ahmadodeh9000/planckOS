@@ -22,6 +22,10 @@ void rtc_read(rtc_time_t* t);
 #define RTC_CLOCK_LEN 5
 void rtc_format_clock(const rtc_time_t* t, char* out);
 
+/* "DD Mon YYYY", e.g. "09 Nov 2026" ('out' needs RTC_DAY_LEN + 1 bytes). */
+#define RTC_DAY_LEN 11
+void rtc_format_day(const rtc_time_t* t, char* out);
+
 /* "YYYY-MM-DD HH:MM:SS" ('out' needs RTC_DATE_LEN + 1 bytes). */
 #define RTC_DATE_LEN 19
 void rtc_format_date(const rtc_time_t* t, char* out);
