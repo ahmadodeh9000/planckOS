@@ -5,7 +5,7 @@
  * from this struct before iretd.
  */
 #include "arch/syscall.h"
-#include "lib/printf.h"
+#include "lib/console.h"
 #include "mm/kmalloc.h"
 
 void syscall_handler(registers_t* regs) {

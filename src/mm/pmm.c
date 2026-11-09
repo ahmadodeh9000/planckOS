@@ -8,7 +8,6 @@
  */
 #include "mm/pmm.h"
 #include "drivers/serial.h"
-#include "lib/printf.h"
 #include "lib/string.h"
 
 #define BITS_PER_WORD       32
@@ -73,7 +72,7 @@ void pmm_reserve_region(uint32_t start, uint32_t size) {
 
 void pmm_init(multiboot_info_t* mbi) {
     if (!(mbi->flags & MULTIBOOT_FLAG_MMAP)) {
-        printf("There are no memory map from grub\n");
+        serial_printf("pmm: GRUB gave no memory map\n");
         return;
     }
 
@@ -110,7 +109,7 @@ void* pmm_alloc_page(void) {
         }
     }
 
-    printf("PMM: out of memory!\n");
+    serial_printf("pmm: out of memory\n");
     return NULL;
 }
 

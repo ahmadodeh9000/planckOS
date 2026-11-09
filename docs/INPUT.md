@@ -64,7 +64,8 @@ wheel) just need a new `event_type` and a push from their handler.
 
 `drivers/keyboard.c` pushes one `EVENT_KEY` per key press that maps to a
 character. Line editing (echo, backspace, Enter) is the reader's job. The
-text shell does it in `shell_readline()`.
+shell does it in `shell_key()`. In text mode `shell_run()` feeds it from
+`event_wait()`, and in the GUI a Terminal window feeds it from `on_key`.
 
 ## Mouse input
 

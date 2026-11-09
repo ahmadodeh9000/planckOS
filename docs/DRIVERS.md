@@ -84,26 +84,36 @@ days. `sleep_ms` needs interrupts enabled.
 
 ## VGA text console — `drivers/vga.c`
 
-**What it does.** Prints text on the 80x25 text screen. It's used by
-`printf` and the shell, and by the exception handler.
+**What it does.** Shows text on the 80x25 text screen. It's a *console
+sink*: `vga_console()` returns a `console_t` (see `lib/console.h`), and
+everything prints through that. Printing goes through `console_print`,
+`console_printf` and `console_print_rainbow`, or plain `printf`, which uses
+the default console set in `kmain`.
 
 **How it works.** The VGA card maps its text buffer at physical `0xB8000`.
 Each of the 2000 cells is a 16-bit value: the character in the low byte and
-an attribute in the high byte (`background << 4 | foreground`, see
-`enum vga_color`). Writing to the buffer shows the character immediately.
-When the cursor passes the last row, `vga_scroll()` moves every row up by
-one and clears the bottom row.
+an attribute in the high byte (`background << 4 | foreground`). Console
+colors are the standard 16 VGA palette indexes, so they go straight into
+the attribute. When the cursor passes the last row, `vga_scroll()` moves
+every row up by one and clears the bottom row. `'\b'` steps back one cell
+(wrapping to the previous row) and blanks it.
 
 The blinking hardware cursor is set through the CRT controller. You write a
 register number to port `0x3D4` (`0x0E` = cursor position high byte,
 `0x0F` = low byte), then its value to port `0x3D5`.
 
-**Key functions.** `vga_clear`, `putc`, `print`, `print_number`, `print_hex`,
-and the `*_rainbow` variants, which give each character of a string its own
-color.
+**Key functions.** `vga_console()`.
 
-**Known limits.** No colors in `printf` apart from the rainbow variants.
-Backspace refuses to move into the first two rows (the shell banner).
+**Known limits.** Black background only.
+
+## Console sinks — `lib/console.c`
+
+A `console_t` is anything that can show a character (`put_char(con, c,
+color)`) and clear itself (`clear(con)`), plus a `data` pointer for its own
+state. The helpers on top (`console_print`, `console_printf` with
+`%s %c %d %u %x`, `console_print_rainbow`) only ever call those two
+functions. That's how the shell runs unchanged on the VGA screen and inside
+Terminal windows: each provides its own sink.
 
 ## Keyboard — `drivers/keyboard.c`
 

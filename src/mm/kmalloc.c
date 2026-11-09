@@ -10,7 +10,6 @@
 #include "mm/pmm.h"
 #include "mm/paging.h"
 #include "drivers/serial.h"
-#include "lib/printf.h"
 
 /* Big enough for a 1024x768x32 back buffer (3 MB) plus window buffers. */
 #define HEAP_SIZE           (16 * 1024 * 1024)
@@ -70,7 +69,7 @@ void* kmalloc(size_t size) {
         }
     }
 
-    printf("kmalloc out of memory!\n");
+    serial_printf("kmalloc: out of memory (%u bytes)\n", size);
     return NULL;
 }
 

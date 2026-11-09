@@ -1,16 +1,16 @@
 /*
- * shell.c - a small command shell on the VGA text console.
+ * shell.c - a small command shell.
  *
- * Reads a line from key events, finds the command in the command table and
- * runs it with the rest of the line as its argument string.
+ * Typed keys build up a line (with echo and backspace). On Enter the first
+ * word is looked up in the command table and the command runs with the
+ * rest of the line as its argument string. All output goes to the shell's
+ * console_t.
  */
 #include "shell/shell.h"
 #include "gui/event.h"
-#include "drivers/vga.h"
 #include "fs/fat12.h"
 #include "mm/kmalloc.h"
-#include "arch/io.h"
-#include "lib/printf.h"
+#include "drivers/power.h"
 #include "lib/string.h"
 
 #define CAT_BUF_SIZE        (512 * 16)  /* largest file 'cat' can show: 8 KB */
@@ -18,13 +18,15 @@
 #define MAX_FILENAME_LEN    12          /* "NAME.EXT" */
 #define SHELL_LINE_MAX      256
 
-/* Writing 0x2000 to port 0x604 powers off QEMU (ACPI shutdown). */
-#define QEMU_SHUTDOWN_PORT  0x604
-#define QEMU_SHUTDOWN_VALUE 0x2000
+struct shell {
+    console_t* con;
+    char line[SHELL_LINE_MAX];
+    uint32_t length;
+};
 
 typedef struct {
     const char* name;
-    void (*run)(const char* args);
+    void (*run)(shell_t* sh, const char* args);
 } shell_command;
 
 static const char* skip_spaces(const char* s) {
@@ -40,77 +42,77 @@ static bool is_command(const char* line, const char* name) {
     return strncmp(line, name, n) == 0 && (line[n] == ' ' || line[n] == '\0');
 }
 
-static void cmd_info(const char* args) {
-    (void)args;
-    printf("********************************************\n");
-    printf("* AUTHOR:   Ahmad Odeh                     *\n");
-    printf_rainbow("* OS:       %s                       *\n", OS_NAME);
-    printf("* VERSION:  %s                          *\n", OS_VERSION);
-    printf("* KERNEL:   %s                           *\n", KERNEL_NAME);
-    printf("********************************************\n");
+static void shell_banner(shell_t* sh) {
+    console_print_rainbow(sh->con, OS_NAME " V " OS_VERSION);
+    console_print(sh->con, "\n\n");
 }
 
-static void cmd_help(const char* args) {
-    (void)args;
-    print("Available commands:\n");
-    print("  info               - show OS info\n");
-    print("  clear              - clear the screen\n");
-    print("  echo <text>        - print text on the screen\n");
-    print("  ls                 - list files\n");
-    print("  cat <file>         - print file contents\n");
-    print("  write <file> <txt> - write text to file\n");
-    print("  del <file>         - delete a file\n");
-    print("  quit               - shutdown the os\n");
-    print("  help               - show this message\n");
+static void shell_prompt(shell_t* sh) {
+    console_print(sh->con, "> ");
 }
 
-static void cmd_clear(const char* args) {
+/* ---- commands ----------------------------------------------------- */
+
+static void cmd_info(shell_t* sh, const char* args) {
     (void)args;
-    vga_clear();
-    printf_rainbow("%s V %s\n\n", OS_NAME, OS_VERSION);
+    console_t* con = sh->con;
+    console_print(con, "********************************************\n");
+    console_print(con, "* AUTHOR:   Ahmad Odeh                     *\n");
+    console_print(con, "* OS:       ");
+    console_print_rainbow(con, OS_NAME);
+    console_print(con, "                       *\n");
+    console_printf(con, "* VERSION:  %s                          *\n", OS_VERSION);
+    console_printf(con, "* KERNEL:   %s                           *\n", KERNEL_NAME);
+    console_print(con, "********************************************\n");
 }
 
-static void cmd_ls(const char* args) {
+static void cmd_help(shell_t* sh, const char* args) {
+    (void)args;
+    console_print(sh->con,
+        "Available commands:\n"
+        "  info               - show OS info\n"
+        "  clear              - clear the screen\n"
+        "  echo <text>        - print text on the screen\n"
+        "  ls                 - list files\n"
+        "  cat <file>         - print file contents\n"
+        "  write <file> <txt> - write text to file\n"
+        "  del <file>         - delete a file\n"
+        "  quit               - shutdown the os\n"
+        "  help               - show this message\n");
+}
+
+static void cmd_clear(shell_t* sh, const char* args) {
+    (void)args;
+    console_clear(sh->con);
+    shell_banner(sh);
+}
+
+static void cmd_echo(shell_t* sh, const char* args) {
+    console_printf(sh->con, "%s\n", args);
+}
+
+static void cmd_ls(shell_t* sh, const char* args) {
     (void)args;
     fat12_file_t* files = kmalloc(LS_MAX_FILES * sizeof(fat12_file_t));
     if (!files) {
-        print("ls: out of memory\n");
+        console_print(sh->con, "ls: out of memory\n");
         return;
     }
     int count = fat12_list(files, LS_MAX_FILES);
     for (int i = 0; i < count; i++) {
-        printf("    %s  %d bytes\n", files[i].name, files[i].size);
+        console_printf(sh->con, "    %s  %u bytes\n", files[i].name, files[i].size);
     }
     kfree(files);
 }
 
-static void cmd_echo(const char* args) {
-    printf("%s\n", args);
-}
-
-static void cmd_del(const char* args) {
+static void cmd_cat(shell_t* sh, const char* args) {
     if (!*args) {
-        print("Usage: del <filename>\n");
+        console_print(sh->con, "Usage: cat <filename>\n");
         return;
     }
-    fat12_status status = fat12_delete(args);
-    if (status == FAT12_OK) {
-        printf("FAT12: deleted %s\n", args);
-    } else {
-        printf("FAT12: %s\n", fat12_status_message(status));
-    }
-}
-
-static void cmd_cat(const char* args) {
-    if (!*args) {
-        print("Usage: cat <filename>\n");
-        return;
-    }
-
-    /* +1 so the file can be '\0'-terminated */
-    uint8_t* buf = kmalloc(CAT_BUF_SIZE + 1);
+    uint8_t* buf = kmalloc(CAT_BUF_SIZE + 1);   /* +1 for the '\0' */
     if (!buf) {
-        print("cat: out of memory\n");
+        console_print(sh->con, "cat: out of memory\n");
         return;
     }
 
@@ -118,53 +120,59 @@ static void cmd_cat(const char* args) {
     fat12_status status = fat12_read(args, buf, CAT_BUF_SIZE, &size);
     if (status == FAT12_OK) {
         buf[size] = '\0';
-        printf("%s\n", (char*)buf);
+        console_printf(sh->con, "%s\n", (char*)buf);
     } else {
-        printf("cat: %s: %s\n", fat12_status_message(status), args);
+        console_printf(sh->con, "cat: %s: %s\n", fat12_status_message(status), args);
     }
     kfree(buf);
 }
 
 /* write <file> <content> */
-static void cmd_write(const char* args) {
+static void cmd_write(shell_t* sh, const char* args) {
     const char* space = args;
     while (*space && *space != ' ') {
         space++;
     }
-    if (!*args || !*space) {
-        print("Usage: write <filename> <content>\n");
+    uint32_t name_len = space - args;
+    const char* content = skip_spaces(space);
+    if (!*args || !*content) {
+        console_print(sh->con, "Usage: write <filename> <content>\n");
+        return;
+    }
+    if (name_len > MAX_FILENAME_LEN) {
+        console_print(sh->con, "write: filename too long (max 12 chars)\n");
         return;
     }
 
-    uint32_t name_len = space - args;
-    if (name_len > MAX_FILENAME_LEN) {
-        print("write: filename too long (max 12 chars)\n");
-        return;
-    }
     char name[MAX_FILENAME_LEN + 1];
     memcpy(name, args, name_len);
     name[name_len] = '\0';
-
-    const char* content = skip_spaces(space + 1);
-    if (!*content) {
-        print("write: no content provided\n");
-        return;
-    }
     uint32_t size = strlen(content);
     fat12_status status = fat12_write(name, (const uint8_t*)content, size);
     if (status == FAT12_OK) {
-        printf("Wrote %s (%d bytes)\n", name, size);
+        console_printf(sh->con, "Wrote %s (%u bytes)\n", name, size);
     } else {
-        printf("write: %s\n", fat12_status_message(status));
+        console_printf(sh->con, "write: %s\n", fat12_status_message(status));
     }
 }
 
-static void cmd_quit(const char* args) {
-    (void)args;
-    outportw(QEMU_SHUTDOWN_PORT, QEMU_SHUTDOWN_VALUE);
-    for (;;) {
-        asm volatile("cli; hlt");
+static void cmd_del(shell_t* sh, const char* args) {
+    if (!*args) {
+        console_print(sh->con, "Usage: del <filename>\n");
+        return;
     }
+    fat12_status status = fat12_delete(args);
+    if (status == FAT12_OK) {
+        console_printf(sh->con, "FAT12: deleted %s\n", args);
+    } else {
+        console_printf(sh->con, "FAT12: %s\n", fat12_status_message(status));
+    }
+}
+
+static void cmd_quit(shell_t* sh, const char* args) {
+    (void)sh;
+    (void)args;
+    power_off();
 }
 
 static const shell_command commands[] = {
@@ -181,53 +189,63 @@ static const shell_command commands[] = {
 
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
 
-static void shell_execute(const char* line) {
+/* ---- line editing ------------------------------------------------- */
+
+static void shell_execute(shell_t* sh, const char* line) {
     for (uint32_t i = 0; i < COMMAND_COUNT; i++) {
         if (is_command(line, commands[i].name)) {
-            commands[i].run(skip_spaces(line + strlen(commands[i].name)));
+            commands[i].run(sh, skip_spaces(line + strlen(commands[i].name)));
             return;
         }
     }
-    printf("Unknown command: %s\n", line);
-    print("Type 'help' for a list of commands.\n");
+    console_printf(sh->con, "Unknown command: %s\n", line);
+    console_print(sh->con, "Type 'help' for a list of commands.\n");
 }
 
-/* Collect typed characters into 'line' until Enter, echoing them and
-   handling backspace. Returns the line length (without the newline). */
-static uint32_t shell_readline(char* line) {
-    uint32_t length = 0;
+void shell_key(shell_t* sh, char key) {
+    if (key == '\n') {
+        console_putc(sh->con, '\n');
+        sh->line[sh->length] = '\0';
+        if (sh->length > 0) {
+            shell_execute(sh, sh->line);
+        }
+        sh->length = 0;
+        shell_prompt(sh);
+    } else if (key == '\b') {
+        if (sh->length > 0) {
+            sh->length--;
+            console_putc(sh->con, '\b');
+        }
+    } else if (sh->length < SHELL_LINE_MAX - 1) {
+        sh->line[sh->length++] = key;
+        console_putc(sh->con, key);
+    }
+}
+
+shell_t* shell_create(console_t* con) {
+    shell_t* sh = kmalloc(sizeof(shell_t));
+    if (!sh) {
+        return NULL;
+    }
+    sh->con = con;
+    sh->length = 0;
+    cmd_clear(sh, "");
+    shell_prompt(sh);
+    return sh;
+}
+
+void shell_destroy(shell_t* sh) {
+    kfree(sh);
+}
+
+void shell_run(console_t* con) {
+    shell_t* sh = shell_create(con);
     event_t event;
 
     for (;;) {
         event_wait(&event);
-        if (event.type != EVENT_KEY) {
-            continue;
-        }
-        if (event.key == '\n') {
-            putc('\n');
-            line[length] = '\0';
-            return length;
-        }
-        if (event.key == '\b') {
-            if (length > 0) {
-                length--;
-                putc('\b');
-            }
-        } else if (length < SHELL_LINE_MAX - 1) {
-            line[length++] = event.key;
-            putc(event.key);
-        }
-    }
-}
-
-void shell_run(void) {
-    char line[SHELL_LINE_MAX];
-
-    cmd_clear("");
-    for (;;) {
-        printf("> ");
-        if (shell_readline(line)) {
-            shell_execute(line);
+        if (sh && event.type == EVENT_KEY) {
+            shell_key(sh, event.key);
         }
     }
 }

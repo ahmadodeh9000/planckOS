@@ -13,6 +13,7 @@
 #include "mm/paging.h"
 #include "mm/kmalloc.h"
 #include "drivers/serial.h"
+#include "drivers/vga.h"
 #include "drivers/timer.h"
 #include "drivers/keyboard.h"
 #include "drivers/ata.h"
@@ -63,6 +64,7 @@ static void storage_init(void) {
 
 void kmain(uint32_t magic, uint32_t mbi_addr) {
     serial_init();
+    console_set_default(vga_console());
     serial_printf("\n%s %s (kernel %s) booting\n", OS_NAME, OS_VERSION, KERNEL_NAME);
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         serial_printf("boot: bad multiboot magic %x\n", magic);
@@ -86,5 +88,5 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
 
     /* No usable framebuffer: fall back to the text-mode shell. */
     serial_printf("shell: starting in text mode\n");
-    shell_run();
+    shell_run(vga_console());
 }
