@@ -1,11 +1,11 @@
 /*
  * shell.c - a small command shell on the VGA text console.
  *
- * Reads a line with readline(), finds the command in the command table and
+ * Reads a line from key events, finds the command in the command table and
  * runs it with the rest of the line as its argument string.
  */
 #include "shell/shell.h"
-#include "drivers/keyboard.h"
+#include "gui/event.h"
 #include "drivers/vga.h"
 #include "fs/fat12.h"
 #include "mm/kmalloc.h"
@@ -15,6 +15,7 @@
 
 #define CAT_BUF_SIZE        (512 * 16)  /* largest file 'cat' can show: 8 KB */
 #define MAX_FILENAME_LEN    12          /* "NAME.EXT" */
+#define SHELL_LINE_MAX      256
 
 /* Writing 0x2000 to port 0x604 powers off QEMU (ACPI shutdown). */
 #define QEMU_SHUTDOWN_PORT  0x604
@@ -172,13 +173,41 @@ static void shell_execute(const char* line) {
     print("Type 'help' for a list of commands.\n");
 }
 
+/* Collect typed characters into 'line' until Enter, echoing them and
+   handling backspace. Returns the line length (without the newline). */
+static uint32_t shell_readline(char* line) {
+    uint32_t length = 0;
+    event_t event;
+
+    for (;;) {
+        event_wait(&event);
+        if (event.type != EVENT_KEY) {
+            continue;
+        }
+        if (event.key == '\n') {
+            putc('\n');
+            line[length] = '\0';
+            return length;
+        }
+        if (event.key == '\b') {
+            if (length > 0) {
+                length--;
+                putc('\b');
+            }
+        } else if (length < SHELL_LINE_MAX - 1) {
+            line[length++] = event.key;
+            putc(event.key);
+        }
+    }
+}
+
 void shell_run(void) {
-    char line[KEYBOARD_LINE_MAX];
+    char line[SHELL_LINE_MAX];
 
     cmd_clear("");
     for (;;) {
         printf("> ");
-        if (readline(line)) {
+        if (shell_readline(line)) {
             shell_execute(line);
         }
     }

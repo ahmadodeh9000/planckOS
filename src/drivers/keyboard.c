@@ -4,12 +4,12 @@
  * Every key press or release makes the keyboard controller raise IRQ1 with
  * one scan code waiting in port 0x60. Press codes are below 0x80; the
  * release code of a key is its press code | 0x80. The handler turns press
- * codes into ASCII, echoes them and collects them into a line buffer that
- * readline() waits on.
+ * codes into ASCII and pushes an EVENT_KEY for each one; whoever reads the
+ * event queue (the shell, the GUI) decides what to do with it.
  */
 #include "drivers/keyboard.h"
-#include "drivers/vga.h"
 #include "arch/idt.h"
+#include "gui/event.h"
 
 #define KEYBOARD_IRQ            1
 #define KEYBOARD_DATA_PORT      0x60
@@ -37,30 +37,7 @@ static const char scancode_map_shift[SCANCODE_TABLE_SIZE] = {
     '*', 0, ' '
 };
 
-/* Shared between the IRQ handler and readline(), hence volatile. */
-static char line_buffer[KEYBOARD_LINE_MAX];
-static volatile uint32_t line_length = 0;
-static volatile bool line_ready = false;
 static bool shift_pressed = false;
-
-static void keyboard_add_char(char c) {
-    if (c == '\b') {
-        if (line_length > 0) {
-            line_buffer[--line_length] = '\0';
-            putc('\b');
-        }
-        return;
-    }
-
-    if (line_length < KEYBOARD_LINE_MAX - 1) {
-        line_buffer[line_length++] = c;
-        putc(c);
-    }
-    if (c == '\n') {
-        line_buffer[line_length] = '\0';
-        line_ready = true;
-    }
-}
 
 static void keyboard_handler(registers_t* regs) {
     (void)regs;
@@ -80,29 +57,9 @@ static void keyboard_handler(registers_t* regs) {
 
     char c = shift_pressed ? scancode_map_shift[scan_code] : scancode_map[scan_code];
     if (c) {
-        keyboard_add_char(c);
+        event_t event = { .type = EVENT_KEY, .key = c };
+        event_push(&event);
     }
-}
-
-uint32_t readline(char* s) {
-    line_ready = false;
-    line_length = 0;
-
-    while (!line_ready) {
-        asm volatile("hlt");    /* sleep until the next interrupt */
-    }
-
-    uint32_t len = line_length;
-    for (uint32_t i = 0; i <= len; i++) {   /* copy including '\0' */
-        s[i] = line_buffer[i];
-    }
-    if (len > 0 && s[len - 1] == '\n') {
-        s[len - 1] = '\0';
-    }
-
-    line_length = 0;
-    line_ready = false;
-    return len - 1;
 }
 
 void keyboard_init(void) {

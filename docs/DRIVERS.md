@@ -106,8 +106,8 @@ Backspace refuses to move into the first two rows (the shell banner).
 
 ## Keyboard — `drivers/keyboard.c`
 
-**What it does.** Reads key presses from the PS/2 keyboard, echoes them on
-screen and gives the shell whole lines through `readline()`.
+**What it does.** Turns PS/2 key presses into `EVENT_KEY` events (see
+`INPUT.md`).
 
 **How it works.** Each press or release makes the keyboard controller raise
 IRQ1 with one byte, a *scan code* (set 1), in port `0x60`. Press codes are
@@ -117,18 +117,15 @@ The handler:
 1. tracks Shift with its press/release codes (`0x2A`/`0x36` and `0xAA`/`0xB6`),
 2. ignores every other release,
 3. turns the code into ASCII through `scancode_map` or `scancode_map_shift`,
-4. appends it to `line_buffer`, echoes it, and marks the line ready on Enter.
+4. pushes `{ EVENT_KEY, key }` into the event queue.
 
-`readline()` sleeps with `hlt` until the handler sets `line_ready`. Both
-variables are `volatile` because an interrupt changes them while
-`readline()` loops.
+It doesn't echo anything. Showing the character is up to whoever reads
+the event.
 
-**Key functions.** `keyboard_init()` hooks IRQ1. `readline(buf)` blocks for
-one line; `buf` must hold `KEYBOARD_LINE_MAX` bytes.
+**Key functions.** `keyboard_init()` hooks IRQ1.
 
 **Known limits.** US layout only. No Ctrl/Alt/Caps Lock. Extended keys
-(arrows, `0xE0`-prefixed codes) are ignored. The handler echoes to the VGA
-console directly, which the GUI phases will replace with key events.
+(arrows, `0xE0`-prefixed codes) are ignored.
 
 ## ATA disk — `drivers/ata.c`
 
