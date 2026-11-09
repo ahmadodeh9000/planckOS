@@ -9,7 +9,7 @@ editor that saves to a FAT12 disk.
 It's meant to be read: the code is split into small, commented
 subsystems, and `docs/` explains how each one works.
 
-![planckOS desktop: a Terminal, the About window and the Files app](docs/screenshot.png)
+![planckOS desktop: a Terminal, the About window and the Files app](docs/desktop-2.0.png)
 
 ## Features
 
