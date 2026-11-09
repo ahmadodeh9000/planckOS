@@ -9,8 +9,8 @@
 #include "gui/cursor.h"
 
 #define CURSOR_HEIGHT   19
-#define COLOR_OUTLINE   RGB(0x00, 0x00, 0x00)
-#define COLOR_FILL      RGB(0xFF, 0xFF, 0xFF)
+#define COLOR_OUTLINE   RGB(0xFF, 0xFF, 0xFF)
+#define COLOR_FILL      RGB(0x00, 0x00, 0x00)
 
 static const char* const arrow[CURSOR_HEIGHT] = {
     "X",
