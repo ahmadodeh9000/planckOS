@@ -12,7 +12,7 @@
 #include <stddef.h>
 
 #define OS_NAME     "planckOS"
-#define OS_VERSION  "1.0.0"
+#define OS_VERSION  "2.0.0"
 #define KERNEL_NAME "Iris"
 
 #endif

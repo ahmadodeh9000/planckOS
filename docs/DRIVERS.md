@@ -34,7 +34,7 @@ so it's safe to call from IRQ and exception handlers. It turns `\n` into
 **Boot log.** Every init step in `kmain` logs one line, for example:
 
 ```
-planckOS 1.0.0 (kernel Iris) booting
+planckOS 2.0.0 (kernel Iris) booting
 gdt: loaded
 idt: loaded, PIC remapped
 pmm: ...
