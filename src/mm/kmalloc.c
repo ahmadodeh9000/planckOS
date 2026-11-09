@@ -86,3 +86,15 @@ void kfree(void* ptr) {
         block->next  = block->next->next;
     }
 }
+
+void heap_stats(uint32_t* used, uint32_t* free) {
+    *used = 0;
+    *free = 0;
+    for (block_header* block = heap_start; block != NULL; block = block->next) {
+        if (block->free) {
+            *free += block->size;
+        } else {
+            *used += block->size;
+        }
+    }
+}

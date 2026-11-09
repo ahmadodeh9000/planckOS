@@ -12,4 +12,8 @@ void timer_install(void);
 uint32_t timer_ticks(void);
 void sleep_ms(uint32_t ms);
 
+/* Uptime as "HH:MM:SS" ('out' needs TIMER_UPTIME_LEN + 1 bytes). */
+#define TIMER_UPTIME_LEN 8
+void timer_format_uptime(char* out);
+
 #endif

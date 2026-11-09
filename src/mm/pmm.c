@@ -113,6 +113,11 @@ void* pmm_alloc_page(void) {
     return NULL;
 }
 
+void pmm_stats(uint32_t* total, uint32_t* used) {
+    *total = total_pages;
+    *used = used_pages;
+}
+
 void pmm_free_page(void* addr) {
     pmm_free_region((uint32_t)addr / PAGE_SIZE, 1);
 }

@@ -37,6 +37,7 @@ That's why the loop advances by `entry->size + sizeof(uint32_t)`.
 | `pmm_alloc_page()` | Find the first free page, mark it used, return its physical address (0 on failure). |
 | `pmm_free_page(addr)` | Mark a page free again. |
 | `pmm_reserve_region(start, size)` | Mark every page overlapping a byte range as used. Use it for memory that something else owns. |
+| `pmm_stats(&total, &used)` | Page counts, shown by the About app. The whole heap counts as used. |
 
 **Extending it.** A faster allocator could remember where the last search
 stopped, or keep a free-page stack. Contiguous multi-page allocations would
@@ -111,6 +112,7 @@ list of chunks, each preceded by a `block_header` (`size`, `free`, `next`):
 | `heap_init()` | Reserve the heap in the PMM and make it one free chunk. |
 | `kmalloc(size)` | Allocate; returns `NULL` when nothing fits. |
 | `kfree(ptr)` | Free; `kfree(NULL)` is allowed. |
+| `heap_stats(&used, &free)` | Bytes in used and free chunks (headers not counted). |
 
 **Extending it.** Merging with the *previous* chunk too (a doubly linked
 list) would reduce fragmentation. A `krealloc` would help growing buffers.

@@ -75,6 +75,7 @@ a loop while an interrupt changes it underneath.
 | `timer_install()` | Program the PIT and hook IRQ0. Called from `kmain` before `sti`. |
 | `timer_ticks()` | Ticks since boot. Uptime in seconds = `timer_ticks() / TIMER_HZ`. |
 | `sleep_ms(ms)` | Halt until at least `ms` milliseconds have passed (10 ms resolution). |
+| `timer_format_uptime(buf)` | Uptime as `"HH:MM:SS"` (used by the taskbar clock and About). |
 
 **Extending it.** A scheduler would hook in here: every N ticks, switch to
 the next task.

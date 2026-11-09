@@ -17,6 +17,8 @@
 #define PIT_CMD_CH0_SQUARE  0x36    /* channel 0, lo/hi byte, mode 3 (square wave) */
 #define TIMER_IRQ           0
 #define MS_PER_SECOND       1000
+#define SECONDS_PER_MINUTE  60
+#define SECONDS_PER_HOUR    3600
 
 static volatile uint32_t ticks = 0;
 
@@ -51,5 +53,18 @@ void sleep_ms(uint32_t ms) {
 
     while (ticks - start < wait) {
         asm volatile("hlt");
+    }
+}
+
+void timer_format_uptime(char* out) {
+    uint32_t seconds = timer_ticks() / TIMER_HZ;
+    uint32_t parts[3] = { seconds / SECONDS_PER_HOUR,
+                          seconds / SECONDS_PER_MINUTE % SECONDS_PER_MINUTE,
+                          seconds % SECONDS_PER_MINUTE };
+
+    for (int i = 0; i < 3; i++) {
+        out[i * 3]     = '0' + parts[i] / 10 % 10;
+        out[i * 3 + 1] = '0' + parts[i] % 10;
+        out[i * 3 + 2] = (i < 2) ? ':' : '\0';
     }
 }

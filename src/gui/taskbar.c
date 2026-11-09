@@ -21,10 +21,7 @@
 #define LAUNCHER_WIDTH      96
 #define WINDOW_BUTTON_WIDTH 150
 #define TEXT_PADDING        8
-#define CLOCK_CHARS         8       /* "HH:MM:SS" */
 #define MAX_TASK_BUTTONS    16
-#define SECONDS_PER_MINUTE  60
-#define SECONDS_PER_HOUR    3600
 
 static rect_t bar;
 
@@ -90,25 +87,11 @@ static void taskbar_button(surface_t* screen, rect_t r, const char* label, uint3
     }
 }
 
-/* Uptime as "HH:MM:SS". */
-static void format_uptime(char* out) {
-    uint32_t seconds = timer_ticks() / TIMER_HZ;
-    uint32_t parts[3] = { seconds / SECONDS_PER_HOUR,
-                          seconds / SECONDS_PER_MINUTE % SECONDS_PER_MINUTE,
-                          seconds % SECONDS_PER_MINUTE };
-
-    for (int i = 0; i < 3; i++) {
-        out[i * 3]     = '0' + parts[i] / 10 % 10;
-        out[i * 3 + 1] = '0' + parts[i] % 10;
-        out[i * 3 + 2] = (i < 2) ? ':' : '\0';
-    }
-}
-
 void taskbar_draw(surface_t* screen) {
     window_t* list[MAX_TASK_BUTTONS];
     int count = windows_in_open_order(list);
     window_t* focused = wm_focused();
-    char clock[CLOCK_CHARS + 1];
+    char clock[TIMER_UPTIME_LEN + 1];
 
     surface_fill_rect(screen, bar.x, bar.y, bar.w, bar.h, THEME_TASKBAR);
     taskbar_button(screen, launcher_button(), OS_NAME, THEME_TASKBAR_ACTIVE);
@@ -117,7 +100,7 @@ void taskbar_draw(surface_t* screen) {
         taskbar_button(screen, window_button(i), list[i]->title, color);
     }
 
-    format_uptime(clock);
-    font_draw_text(screen, bar.w - (CLOCK_CHARS + 1) * FONT_WIDTH,
+    timer_format_uptime(clock);
+    font_draw_text(screen, bar.w - (TIMER_UPTIME_LEN + 1) * FONT_WIDTH,
                    bar.y + (bar.h - FONT_HEIGHT) / 2, clock, THEME_TEXT_LIGHT);
 }

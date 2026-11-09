@@ -18,4 +18,7 @@ void* pmm_alloc_page(void);
 void pmm_free_page(void* addr);
 void pmm_reserve_region(uint32_t start, uint32_t size);
 
+/* Pages of RAM in total and in use (the heap counts as in use). */
+void pmm_stats(uint32_t* total, uint32_t* used);
+
 #endif

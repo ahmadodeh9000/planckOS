@@ -82,3 +82,17 @@ long lists.
 
 **Known limits.** Up to 128 files are shown. Delete doesn't ask for
 confirmation.
+
+## About — `apps/about.c`
+
+**What it does.** Shows the OS name and version, the kernel name, the
+author, the uptime, and how much memory is used and free.
+
+**How it works.** `about_paint` draws a column of labels and values. The
+numbers come from `timer_format_uptime()`, `pmm_stats()` (physical pages,
+shown in MB) and `heap_stats()` (heap chunks, shown in KB). The app has no
+state of its own, so it needs no `on_close`. Its `on_timer` just
+invalidates the window, so the figures refresh every second.
+
+Note that "RAM used" includes the whole 16 MB heap, which is reserved in
+the PMM up front, and "Heap used" includes the 3 MB screen back buffer.
