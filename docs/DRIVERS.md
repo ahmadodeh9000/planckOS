@@ -83,6 +83,53 @@ the next task.
 **Known limits.** 10 ms resolution. The 32-bit counter wraps after about 497
 days. `sleep_ms` needs interrupts enabled.
 
+## Real-time clock (RTC) — `drivers/rtc.c`
+
+**What it does.** Reads the wall-clock date and time from the CMOS RTC,
+the battery-backed chip that keeps time while the machine is off.
+
+**How it works.** The CMOS chip has a small set of registers behind two
+I/O ports: write a register number to `0x70`, then read its value from
+`0x71`.
+
+| Register | Holds |
+|----------|-------|
+| `0x00` / `0x02` / `0x04` | seconds / minutes / hours |
+| `0x07` / `0x08` / `0x09` | day / month / year (two digits) |
+| `0x0A` (status A) | bit 7: an update is in progress |
+| `0x0B` (status B) | bit 1: 24-hour mode; bit 2: binary instead of BCD |
+
+Two quirks shape `rtc_read()`:
+
+- *Torn reads.* The chip updates its registers once a second, and reading
+  in the middle of an update can mix old and new values. `rtc_read_raw()`
+  waits until status A says no update is in progress, then reads every
+  register. `rtc_read()` repeats that until two reads in a row match.
+- *Formats.* Values are usually BCD (`0x45` means 45: one decimal digit per
+  4-bit nibble), and the hour may be 12-hour with bit 7 as the PM flag.
+  `rtc_normalize()` uses status B to turn everything into plain binary
+  24-hour values, and adds 2000 to the two-digit year.
+
+Under QEMU the RTC starts from the host's clock. The Makefile passes
+`-rtc base=localtime`, so it shows your local time instead of UTC.
+
+**Key functions.**
+
+| Function | Purpose |
+|----------|---------|
+| `rtc_read(&t)` | Fill an `rtc_time_t` (second, minute, hour, day, month, year). Slow port I/O: never call it from an IRQ handler. |
+| `rtc_format_clock(&t, buf)` | `"HH:MM"` (`RTC_CLOCK_LEN` + 1 bytes), used by the taskbar. |
+| `rtc_format_date(&t, buf)` | `"YYYY-MM-DD HH:MM:SS"` (`RTC_DATE_LEN` + 1 bytes), used by the shell's `date`. |
+
+**Extending it.** Register `0x32` holds the century on most PCs (the ACPI
+FADT says where), which would replace the fixed 2000. Setting the clock
+means writing the same registers, with bit 7 of status B set while you
+write. The RTC can also raise IRQ 8 periodically or at an alarm time
+(status B bits 6 and 5).
+
+**Known limits.** Read-only. Assumes the 21st century. No time zones: it
+shows whatever the chip holds.
+
 ## VGA text console — `drivers/vga.c`
 
 **What it does.** Shows text on the 80x25 text screen. It's a *console
