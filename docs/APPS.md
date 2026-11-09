@@ -1,9 +1,33 @@
 # Apps
 
-Apps live in `src/apps/`, one file each. An app is a function
-`<name>_open()` that creates a window and fills in its callbacks (see
-`GUI.md` for `window_t`). It is registered with one line in
-`apps/apps.c`, which puts it in the launcher menu.
+Apps live in `src/apps/`, one `.c`/`.h` pair each. The built-in apps are
+Terminal, Files, Notepad and About, plus a "Shut down" launcher entry. At
+the end of this page there's a step-by-step tutorial for writing your own.
+
+## Anatomy of an app
+
+An app is plain kernel C code. There are no processes, so "running an app"
+means "a window whose callbacks point into the app's file". Every app
+follows the same shape:
+
+1. **State struct.** Everything one window of the app needs, allocated with
+   `kmalloc` in `<name>_open()` and stored in `win->data`. Because the state
+   lives per window, several windows of the same app don't interfere.
+2. **`<name>_open()`.** Calls `window_create(title, width, height)`, sets
+   `win->data` and the callbacks it needs. This is the only public function,
+   declared in `<name>.h`.
+3. **Callbacks** (see `GUI.md` for the full list):
+   - `on_paint` draws the whole content into `win->surface`. It starts
+     cleared to the window background color.
+   - `on_key` and `on_mouse` change the state, then call
+     `window_invalidate(win)` so `on_paint` runs on the next frame.
+   - `on_timer` runs once a second, if you need it.
+   - `on_close` frees `win->data`.
+4. **One line in `apps/apps.c`** puts it in the launcher menu.
+
+Apps never draw outside their own surface, never touch the screen directly,
+and never block. A callback must return quickly, because the whole desktop
+waits for it.
 
 ## Terminal — `apps/terminal.c`
 
@@ -121,3 +145,157 @@ also what the shell's `quit` command does. It writes the ACPI "sleep type
 5, enable" value `0x2000` to the I/O port that QEMU (`0x604`) and Bochs
 (`0xB004`) treat as their power button. Real hardware would need the port
 from the ACPI tables, so there the machine just halts.
+
+## Tutorial: add your own app
+
+We'll build **Hello**: a window with a greeting, a button and a click
+counter. It takes about 70 lines and touches three files.
+
+### Step 1: the header
+
+Create `src/apps/hello.h`. It exposes one function, the one the launcher
+calls:
+
+```c
+/*
+ * hello.h - a tiny example app.
+ */
+#ifndef hello_h__
+#define hello_h__
+
+void hello_open(void);
+
+#endif
+```
+
+### Step 2: the app
+
+Create `src/apps/hello.c`:
+
+```c
+/*
+ * hello.c - a tiny example app: a greeting, a button and a click counter.
+ */
+#include "apps/hello.h"
+#include "gui/wm.h"
+#include "gui/widget.h"
+#include "mm/kmalloc.h"
+#include "lib/string.h"
+
+#define HELLO_WIDTH     260
+#define HELLO_HEIGHT    110
+#define NUMBER_MAX      12
+#define LINE_MAX        32
+
+static const rect_t button_rect = { 10, 70, 100, 26 };
+
+typedef struct {
+    uint32_t clicks;
+} hello_state;
+
+static void hello_paint(window_t* win) {
+    hello_state* state = win->data;
+    char line[LINE_MAX];
+    char number[NUMBER_MAX];
+
+    widget_label(&win->surface, 10, 10, "Hello from " OS_NAME "!");
+    strcpy(line, "Clicks: ");
+    strcat(line, utoa(state->clicks, number, 10));
+    widget_label(&win->surface, 10, 36, line);
+    widget_button(&win->surface, button_rect, "Click me");
+}
+
+static void hello_mouse(window_t* win, const event_t* e) {
+    hello_state* state = win->data;
+
+    if (e->type == EVENT_MOUSE_DOWN && rect_contains(button_rect, e->x, e->y)) {
+        state->clicks++;
+        window_invalidate(win);
+    }
+}
+
+static void hello_close(window_t* win) {
+    kfree(win->data);
+}
+
+void hello_open(void) {
+    hello_state* state = kmalloc(sizeof(hello_state));
+    if (!state) {
+        return;
+    }
+    window_t* win = window_create("Hello", HELLO_WIDTH, HELLO_HEIGHT);
+    if (!win) {
+        kfree(state);
+        return;
+    }
+    state->clicks = 0;
+
+    win->data = state;
+    win->on_paint = hello_paint;
+    win->on_mouse = hello_mouse;
+    win->on_close = hello_close;
+}
+```
+
+Walking through it:
+
+- **`hello_state`** holds the click count. `hello_open` allocates it,
+  stores it in `win->data`, and `hello_close` frees it when the window
+  closes.
+- **`button_rect`** is where the button sits, in *content* coordinates
+  (`(0, 0)` is the top-left of the area under the title bar). The same
+  rectangle is used to draw the button and to test clicks, so they can't
+  drift apart.
+- **`hello_paint`** draws everything from scratch each time. You never
+  erase anything yourself: the window manager clears the surface before
+  calling `on_paint`.
+- **`hello_mouse`** gets mouse events in content coordinates too. On a
+  press inside the button it changes the state and calls
+  `window_invalidate()`. That's the only way to get repainted. Changing the
+  state alone shows nothing.
+- **Error handling.** If `kmalloc` or `window_create` fails, `hello_open`
+  cleans up and returns. Nothing else needs to know.
+
+### Step 3: register it
+
+In `src/apps/apps.c`, include the header and add one line to `app_list`:
+
+```c
+#include "apps/hello.h"
+...
+const app_entry app_list[] = {
+    { "Terminal",  terminal_open },
+    { "Files",     files_open },
+    { "Notepad",   notepad_open },
+    { "About",     about_open },
+    { "Hello",     hello_open },     /* <- new */
+    { "Shut down", power_off },
+};
+```
+
+You don't need to touch the Makefile: it compiles every `.c` file under
+`src/`.
+
+### Step 4: build and run
+
+```sh
+make run
+```
+
+Click **planckOS** on the taskbar, choose **Hello**, and click the button.
+The counter goes up, and the taskbar shows a "Hello" button. You can open
+several Hello windows: each has its own counter, because each has its own
+`hello_state`.
+
+### Ideas to try next
+
+- **React to keys:** add `win->on_key = hello_key;` and reset the counter
+  when `key == 'r'`.
+- **Show the time:** set `win->on_timer` to a function that only calls
+  `window_invalidate(win)`, and draw `timer_format_uptime()` in
+  `hello_paint` (see `apps/about.c`).
+- **Use the disk:** save the count with `fat12_write("HELLO.TXT", ...)` and
+  load it in `hello_open` with `fat12_read`. Check the `fat12_status` you
+  get back.
+- **Add a shell command** instead of an app: see the Terminal section
+  above.
