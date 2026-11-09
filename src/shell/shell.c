@@ -45,6 +45,7 @@ static bool is_command(const char* line, const char* name) {
 }
 
 static void shell_banner(shell_t* sh) {
+    logo_print(sh->con);
     console_print_rainbow(sh->con, OS_NAME " V " OS_VERSION);
     console_print(sh->con, "\n\n");
 }
@@ -244,7 +245,6 @@ shell_t* shell_create(console_t* con) {
     sh->con = con;
     sh->length = 0;
     console_clear(con);
-    logo_print(con);
     console_putc(con, '\n');
     shell_banner(sh);
     shell_prompt(sh);
