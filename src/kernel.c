@@ -12,16 +12,6 @@
 #include "ata.h"
 #include "fat12.h"
 
-#if defined(__linux__)
-#error "you should compile it with a cross compiler"
-#endif
-
-
-#if defined(__darwin__)
-#error "you should use a corss compiler"
-#endif
-
-
 #if !defined(__i386__)
 #error "This needs to be compiled with a ix86-elf compiler"
 #endif

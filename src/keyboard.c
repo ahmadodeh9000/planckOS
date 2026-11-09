@@ -5,8 +5,8 @@
 #define BUF_SIZE    2048
 
 static char buffer[BUF_SIZE] = {};
-bool input_ready = false;
-static uint32_t index = 0;
+static volatile bool input_ready = false;
+static volatile uint32_t index = 0;
 
 static const char scancode_map[128] = {
     0,  0,  '1','2','3','4','5','6','7','8','9','0','-','=','\b',
