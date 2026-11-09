@@ -47,6 +47,33 @@ Compiler flags worth knowing:
   register forever.
 - `-Wall -Wextra`: the build should produce no warnings.
 
+## Running and debugging
+
+- **Mouse in the QEMU window.** The PS/2 mouse is relative, so QEMU has to
+  grab your mouse: click inside the window, and press Ctrl+Alt+G to let go.
+- **Serial log.** Everything the kernel logs with `serial_printf` appears
+  in the terminal you ran `make run` from. That includes each boot step,
+  exceptions and out-of-memory messages. It's the first place to look when
+  something goes wrong, especially in graphics mode, where the VGA text
+  screen isn't visible.
+- **Text mode.** Change `gfxpayload=1024x768x32` to `gfxpayload=text` in
+  `boot/grub.cfg` to boot the old text shell instead of the desktop.
+- **QEMU monitor.** In the QEMU window, Ctrl+Alt+2 opens the monitor and
+  Ctrl+Alt+1 goes back. Useful commands: `info registers` (CPU state),
+  `info pic`, `info mem` (page mappings), `screendump file.ppm`,
+  `sendkey a`, `mouse_move 10 0`, `mouse_button 1`.
+- **Interrupt tracing.** Run QEMU by hand with `-d int -no-reboot` to print
+  every interrupt and exception. That's handy for triple faults.
+- **GDB.** Start QEMU paused with a GDB server:
+
+  ```sh
+  qemu-system-i386 -cdrom build/planckOS.iso -drive file=disk.img,format=raw,index=1,media=disk -serial stdio -s -S
+  ```
+
+  Then in another terminal run `gdb build/kernel.elf` (or `i686-elf-gdb`),
+  followed by `target remote :1234`, `break kmain` and `continue`. The
+  kernel is built with `-g`, so you get source lines and variables.
+
 ## Known limits
 
 - `make disk` on macOS formats the image through `hdiutil attach`, which
