@@ -42,7 +42,6 @@ void gui_main_loop(void) {
     mouse_y = screen->height / 2;
     wm_init(screen->width, screen->height - THEME_TASKBAR_HEIGHT);
     demo_open();
-    demo_open();
 
     gui_compose(screen);
     fb_present();

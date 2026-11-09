@@ -100,3 +100,40 @@ in every redraw, so it always sits on top. There's no "save what was under
 the cursor" trick: the whole frame is redrawn from scratch, so the old
 cursor position simply gets painted over. `surface_put_pixel` clips, so the
 cursor can hang off the right or bottom edge.
+
+## Widgets — `gui/widget.c`
+
+**What it does.** Small helpers for drawing common controls inside a
+window. It's deliberately *not* a toolkit: there are no widget objects, no
+layout, no event routing. An app decides where each control goes (a
+`rect_t` in content coordinates), keeps its own state, draws the controls
+in `on_paint`, and checks clicks itself in `on_mouse`.
+
+| Helper | Draws / does |
+|--------|--------------|
+| `widget_label(s, x, y, text)` | Black text. |
+| `widget_button(s, rect, label)` | A grey button with centered text. Check clicks with `rect_contains(rect, e->x, e->y)`. |
+| `widget_textbox(s, rect, &box, focused)` | A one-line text field with a caret. If the text is too long, its end is shown. |
+| `widget_textbox_key(&box, key)` | Appends printable characters, handles backspace; returns `true` if the text changed. |
+| `widget_list(s, rect, items, count, first, selected)` | Rows of strings, 20 px each, starting at item `first`, with `selected` highlighted. |
+| `widget_list_hit(rect, count, first, x, y)` | Which item is at a click position (`-1` for none). |
+
+A typical pattern (from `apps/demo.c`):
+
+```c
+static void demo_mouse(window_t* win, const event_t* e) {
+    demo_state* state = win->data;
+    if (e->type != EVENT_MOUSE_DOWN) {
+        return;
+    }
+    int index = widget_list_hit(list_rect, FRUIT_COUNT, 0, e->x, e->y);
+    if (index >= 0) {
+        state->selected = index;
+        window_invalidate(win);     /* repaint with the new selection */
+    }
+}
+```
+
+**Known limits.** No pressed/hover look for buttons. Text boxes only edit at
+the end (no cursor movement or selection). Lists don't draw a scrollbar;
+the app passes `first` to scroll.

@@ -1,56 +1,68 @@
 /*
- * demo.c - a small window used to try out the window manager: it shows the
- * last key typed and the last click position inside it.
+ * demo.c - a small window used to try out the window manager and the
+ * widget helpers: a text box, a button that clears it, and a list you can
+ * pick from.
  */
 #include "apps/demo.h"
 #include "gui/wm.h"
-#include "gui/theme.h"
-#include "gfx/font.h"
+#include "gui/widget.h"
 #include "mm/kmalloc.h"
 #include "lib/string.h"
 
-#define DEMO_WIDTH      320
-#define DEMO_HEIGHT     160
-#define TEXT_X          10
-#define NUMBER_MAX      12
+#define DEMO_WIDTH      360
+#define DEMO_HEIGHT     230
+#define MARGIN          10
+#define TEXT_MAX        64
 #define LINE_MAX        48
 
+static const char* const fruits[] = { "Apple", "Banana", "Cherry", "Date", "Elderberry" };
+#define FRUIT_COUNT ((int)(sizeof(fruits) / sizeof(fruits[0])))
+
+static const rect_t textbox_rect = { MARGIN, 30, 250, 24 };
+static const rect_t clear_rect   = { 270, 30, 80, 24 };
+static const rect_t list_rect    = { MARGIN, 90, 200, 5 * WIDGET_LIST_ROW_HEIGHT };
+
 typedef struct {
-    char last_key;
-    int click_x, click_y;
+    char text[TEXT_MAX];
+    textbox_t box;
+    int selected;
 } demo_state;
 
 static void demo_paint(window_t* win) {
     demo_state* state = win->data;
     char line[LINE_MAX];
-    char number[NUMBER_MAX];
 
-    font_draw_text(&win->surface, TEXT_X, 10, "Type or click in this window.", THEME_TEXT);
+    widget_label(&win->surface, MARGIN, 8, "Type something:");
+    widget_textbox(&win->surface, textbox_rect, &state->box, true);
+    widget_button(&win->surface, clear_rect, "Clear");
+    widget_label(&win->surface, MARGIN, 68, "Pick a fruit:");
+    widget_list(&win->surface, list_rect, fruits, FRUIT_COUNT, 0, state->selected);
 
-    strcpy(line, "Last key: ");
-    int len = strlen(line);
-    line[len] = state->last_key ? state->last_key : '-';
-    line[len + 1] = '\0';
-    font_draw_text(&win->surface, TEXT_X, 10 + 2 * FONT_HEIGHT, line, THEME_TEXT);
-
-    strcpy(line, "Last click: ");
-    strcat(line, utoa(state->click_x, number, 10));
-    strcat(line, ", ");
-    strcat(line, utoa(state->click_y, number, 10));
-    font_draw_text(&win->surface, TEXT_X, 10 + 3 * FONT_HEIGHT, line, THEME_TEXT);
+    strcpy(line, "Picked: ");
+    strcat(line, state->selected >= 0 ? fruits[state->selected] : "nothing");
+    widget_label(&win->surface, 220, 90, line);
 }
 
 static void demo_key(window_t* win, char key) {
     demo_state* state = win->data;
-    state->last_key = key;
-    window_invalidate(win);
+    if (widget_textbox_key(&state->box, key)) {
+        window_invalidate(win);
+    }
 }
 
 static void demo_mouse(window_t* win, const event_t* e) {
     demo_state* state = win->data;
-    if (e->type == EVENT_MOUSE_DOWN) {
-        state->click_x = e->x;
-        state->click_y = e->y;
+    if (e->type != EVENT_MOUSE_DOWN) {
+        return;
+    }
+    if (rect_contains(clear_rect, e->x, e->y)) {
+        state->text[0] = '\0';
+        window_invalidate(win);
+        return;
+    }
+    int index = widget_list_hit(list_rect, FRUIT_COUNT, 0, e->x, e->y);
+    if (index >= 0) {
+        state->selected = index;
         window_invalidate(win);
     }
 }
@@ -64,12 +76,16 @@ void demo_open(void) {
     if (!state) {
         return;
     }
-    window_t* win = window_create("Demo", DEMO_WIDTH, DEMO_HEIGHT);
+    window_t* win = window_create("Widget demo", DEMO_WIDTH, DEMO_HEIGHT);
     if (!win) {
         kfree(state);
         return;
     }
     memset(state, 0, sizeof(demo_state));
+    state->box.text = state->text;
+    state->box.capacity = TEXT_MAX;
+    state->selected = -1;
+
     win->data = state;
     win->on_paint = demo_paint;
     win->on_key = demo_key;
