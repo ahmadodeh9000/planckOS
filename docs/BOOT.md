@@ -11,16 +11,20 @@
    `start`. It leaves two values in registers:
    - `eax` = `0x2BADB002` (proves a Multiboot loader started us)
    - `ebx` = physical address of the `multiboot_info_t` structure
-3. **`start` → `kmain`.** `start` points `esp` at an 8 KB stack in `.bss`,
-   pushes `ebx` and `eax` as arguments and calls `kmain(magic, mbi_addr)` in
-   `src/kernel.c`.
+3. **`start` → `kmain`.** `start` points `esp` at the top of an 8 KB stack
+   in `.bss`, pushes `ebx` and `eax` as arguments and calls
+   `kmain(magic, mbi_addr)` in `src/kernel.c`.
+4. **`kmain`** checks the magic, then brings the kernel up in order:
+   `serial_init` → `cpu_init` (GDT, IDT/PIC, PIT, `sti`) → `memory_init`
+   (PMM, paging, heap) → `storage_init` (ATA detect, FAT12 if a disk is
+   present) → keyboard → `shell_run()`. Each step logs one line to serial.
 
 ## The Multiboot header
 
 ```
-dd MAGIC        ; 0x1BADB002
-dd BOOT_FLAGS   ; what we ask GRUB for
-dd CHECKSUM     ; -(MAGIC + FLAGS), so the three add up to 0
+dd MULTIBOOT_MAGIC   ; 0x1BADB002
+dd BOOT_FLAGS        ; bit 1: give us the memory map
+dd CHECKSUM          ; -(MAGIC + FLAGS), so the three add up to 0
 ```
 
 GRUB only searches the **first 8 KB** of the kernel file for this header. It
