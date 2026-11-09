@@ -96,3 +96,11 @@ invalidates the window, so the figures refresh every second.
 
 Note that "RAM used" includes the whole 16 MB heap, which is reserved in
 the PMM up front, and "Heap used" includes the 3 MB screen back buffer.
+
+## Shut down
+
+The last launcher entry calls `power_off()` (`drivers/power.c`), which is
+also what the shell's `quit` command does. It writes the ACPI "sleep type
+5, enable" value `0x2000` to the I/O port that QEMU (`0x604`) and Bochs
+(`0xB004`) treat as their power button. Real hardware would need the port
+from the ACPI tables, so there the machine just halts.

@@ -136,9 +136,16 @@ menu listing every registered app. Clicking an entry opens that app.
 
 ```c
 const app_entry app_list[] = {
-    { "Widget demo", demo_open },
+    { "Terminal",  terminal_open },
+    { "Files",     files_open },
+    { "Notepad",   notepad_open },
+    { "About",     about_open },
+    { "Shut down", power_off },
 };
 ```
+
+An entry is just a name and a `void (*)(void)`, so "Shut down" can call
+`power_off()` directly.
 
 The menu draws one 24 px row per entry, right above the launcher button,
 and highlights the row under the pointer (`menu_mouse_move`). Every mouse
@@ -173,19 +180,21 @@ in `on_paint`, and checks clicks itself in `on_mouse`.
 | `widget_list(s, rect, items, count, first, selected)` | Rows of strings, 20 px each, starting at item `first`, with `selected` highlighted. |
 | `widget_list_hit(rect, count, first, x, y)` | Which item is at a click position (`-1` for none). |
 
-A typical pattern (from `apps/demo.c`):
+A typical pattern (simplified from `apps/files.c`):
 
 ```c
-static void demo_mouse(window_t* win, const event_t* e) {
-    demo_state* state = win->data;
+static void files_mouse(window_t* win, const event_t* e) {
+    files_state* f = win->data;
     if (e->type != EVENT_MOUSE_DOWN) {
         return;
     }
-    int index = widget_list_hit(list_rect, FRUIT_COUNT, 0, e->x, e->y);
+    int index = widget_list_hit(list_rect, f->count, f->first, e->x, e->y);
     if (index >= 0) {
-        state->selected = index;
-        window_invalidate(win);     /* repaint with the new selection */
+        f->selected = index;
+    } else if (rect_contains(delete_rect, e->x, e->y)) {
+        files_delete_selected(f);
     }
+    window_invalidate(win);     /* repaint with the new state */
 }
 ```
 
