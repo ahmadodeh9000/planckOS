@@ -50,3 +50,33 @@ parameter.
 
 **Known limits.** Transmit only. Polling blocks for a moment on every
 character, which is fine for logging but too slow for bulk data.
+
+## Timer (PIT) — `drivers/timer.c`
+
+**What it does.** Gives the kernel a clock: a tick counter that goes up
+`TIMER_HZ` (100) times per second, plus `sleep_ms()`.
+
+**How it works.** The 8253/8254 Programmable Interval Timer has an input
+clock of 1.193182 MHz. Channel 0 counts down from a 16-bit divisor and
+raises IRQ0 every time it reaches zero. `timer_install()` writes command
+`0x36` to port `0x43` (channel 0, low byte then high byte, mode 3). It then
+writes the divisor `1193182 / 100` to port `0x40` and installs the IRQ0
+handler.
+
+The handler only does `ticks++`. Keep IRQ handlers this small: they run
+with interrupts off. `ticks` is `volatile` because `sleep_ms()` polls it in
+a loop while an interrupt changes it underneath.
+
+**Key functions.**
+
+| Function | Purpose |
+|----------|---------|
+| `timer_install()` | Program the PIT and hook IRQ0. Called from `kmain` before `sti`. |
+| `timer_ticks()` | Ticks since boot. Uptime in seconds = `timer_ticks() / TIMER_HZ`. |
+| `sleep_ms(ms)` | Halt until at least `ms` milliseconds have passed (10 ms resolution). |
+
+**Extending it.** A scheduler would hook in here: every N ticks, switch to
+the next task.
+
+**Known limits.** 10 ms resolution. The 32-bit counter wraps after about 497
+days. `sleep_ms` needs interrupts enabled.

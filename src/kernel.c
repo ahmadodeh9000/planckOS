@@ -11,6 +11,7 @@
 #include "arch/syscall.h"
 #include "drivers/ata.h"
 #include "fs/fat12.h"
+#include "drivers/timer.h"
 
 #if !defined(__i386__)
 #error "This needs to be compiled with a ix86-elf compiler"
@@ -30,6 +31,8 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
     idt_init();
     serial_printf("idt: loaded, PIC remapped\n");
 
+    timer_install();
+    serial_printf("timer: PIT at %u Hz\n", TIMER_HZ);
     asm volatile("sti");   // enabling cpu interrupts
     pmm_init((multiboot_info_t *)mbi_addr);
     paging_init();

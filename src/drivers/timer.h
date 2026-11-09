@@ -1,6 +1,15 @@
+/*
+ * timer.h - PIT (8253/8254) system tick.
+ */
 #ifndef timer_h__
 #define timer_h__
 
-void timer_install();
+#include "lib/common.h"
+
+#define TIMER_HZ    100     /* ticks per second */
+
+void timer_install(void);
+uint32_t timer_ticks(void);
+void sleep_ms(uint32_t ms);
 
 #endif
