@@ -127,6 +127,54 @@ the event.
 **Known limits.** US layout only. No Ctrl/Alt/Caps Lock. Extended keys
 (arrows, `0xE0`-prefixed codes) are ignored.
 
+## Mouse — `drivers/mouse.c`
+
+**What it does.** Reads the PS/2 mouse and turns its packets into
+`EVENT_MOUSE_MOVE`, `EVENT_MOUSE_DOWN` and `EVENT_MOUSE_UP` events, with the
+pointer position in screen pixels.
+
+**How it works.** The mouse sits on the second ("auxiliary") port of the
+same 8042 controller as the keyboard. Both share data port `0x60`. The
+controller's status/command port is `0x64`.
+
+*Setup (`mouse_init`)*, done with interrupts off so no handler eats the
+replies:
+
+1. Command `0xA8` enables the aux port.
+2. Read the controller configuration byte (`0x20`), set bit 1 (raise IRQ12
+   for mouse data), clear bit 5 (aux clock disabled), write it back (`0x60`).
+3. Send the mouse "set defaults" (`0xF6`) then "enable reporting" (`0xF4`).
+   Each byte for the mouse goes through command `0xD4` ("next data byte is
+   for the aux device"), and the mouse answers `0xFA` (ACK).
+4. Let the IRQ12 that those replies raised fire *before* installing the
+   handler. Otherwise the handler reads a stale byte and gets out of step.
+
+Before every write we wait until status bit 1 (input buffer full) is clear.
+Before every read we wait until bit 0 (output buffer full) is set. Both
+waits have a timeout, so a missing mouse can't hang the boot.
+
+*Packets.* Each movement or button change sends 3 bytes, one per IRQ12:
+
+| Byte | Bits |
+|------|------|
+| 0 | 0-2 left/right/middle, 3 always 1, 4 X sign, 5 Y sign, 6-7 overflow |
+| 1 | X movement, low 8 bits |
+| 2 | Y movement, low 8 bits (positive = **up**) |
+
+The movement values are 9-bit two's complement numbers whose sign bit
+lives in byte 0, so `dx = byte1 - (x_sign ? 256 : 0)`. The handler collects
+3 bytes, and if a "first" byte doesn't have bit 3 set it drops bytes until
+it's back in step. It then updates the position (flipping Y, because screen
+Y grows downwards), clamps it to the screen, and pushes events. Packets with
+the overflow bits set are ignored.
+
+**Key functions.** `mouse_init(width, height)`. The pointer starts in the
+middle of the screen.
+
+**Known limits.** No scroll wheel (that needs the IntelliMouse 4-byte
+mode). Movement isn't accelerated. In a QEMU window the mouse is relative,
+so click into the window to grab it (Ctrl+Alt+G releases it).
+
 ## ATA disk — `drivers/ata.c`
 
 **What it does.** Reads and writes 512-byte sectors on the data disk with

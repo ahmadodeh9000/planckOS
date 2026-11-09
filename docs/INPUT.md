@@ -64,3 +64,25 @@ wheel) just need a new `event_type` and a push from their handler.
 `drivers/keyboard.c` pushes one `EVENT_KEY` per key press that maps to a
 character. Line editing (echo, backspace, Enter) is the reader's job. The
 text shell does it in `shell_readline()`.
+
+## Mouse input
+
+`drivers/mouse.c` keeps the pointer position itself and pushes:
+
+- `EVENT_MOUSE_MOVE` with the new `(x, y)` whenever a packet moves it,
+- `EVENT_MOUSE_DOWN` / `EVENT_MOUSE_UP` for each button whose state changed,
+  with the position at that moment.
+
+So readers never need to do pointer math. Every mouse event already
+carries screen coordinates.
+
+## Testing input without hands
+
+The QEMU monitor can inject input, which is handy for scripted tests:
+
+```
+sendkey a                 # press and release a key
+mouse_move 100 50         # move right 100, down 50 (relative)
+mouse_button 1            # left button down (2 = right, 4 = middle)
+mouse_button 0            # all buttons up
+```

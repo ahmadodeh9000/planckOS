@@ -18,7 +18,8 @@
 #include "drivers/ata.h"
 #include "fs/fat12.h"
 #include "gfx/fb.h"
-#include "gfx/font.h"
+#include "drivers/mouse.h"
+#include "gui/gui.h"
 #include "shell/shell.h"
 
 #if !defined(__i386__)
@@ -60,28 +61,6 @@ static void storage_init(void) {
     }
 }
 
-/* Placeholder until the window manager exists: shows that drawing works. */
-static void boot_screen_show(void) {
-    surface_t* screen = fb_back_buffer();
-    int w = screen->width;
-    int h = screen->height;
-
-    surface_fill_rect(screen, 0, 0, w, h, RGB(0x20, 0x4A, 0x87));
-    surface_fill_rect(screen, w / 4, h / 4, w / 2, h / 2, RGB(0xEE, 0xEE, 0xEC));
-    surface_fill_rect(screen, w / 4, h / 4, w / 2, 24, RGB(0x34, 0x65, 0xA4));
-    surface_fill_rect(screen, -50, h - 40, w + 100, 40, RGB(0x2E, 0x34, 0x36));
-
-    int x = w / 4 + FONT_WIDTH;
-    int y = h / 4 + 4;
-    font_draw_text(screen, x, y, OS_NAME " " OS_VERSION " - kernel " KERNEL_NAME, RGB(0xFF, 0xFF, 0xFF));
-    font_draw_text(screen, x, y + 2 * FONT_HEIGHT, "Framebuffer graphics are working.", RGB(0, 0, 0));
-    font_draw_text(screen, x, y + 4 * FONT_HEIGHT, " !\"#$%&'()*+,-./0123456789:;<=>?", RGB(0x20, 0x4A, 0x87));
-    font_draw_text(screen, x, y + 5 * FONT_HEIGHT, "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_", RGB(0x20, 0x4A, 0x87));
-    font_draw_text(screen, x, y + 6 * FONT_HEIGHT, "`abcdefghijklmnopqrstuvwxyz{|}~", RGB(0x20, 0x4A, 0x87));
-    font_draw_text(screen, w - 9 * FONT_WIDTH, h - 28, "00:00:00", RGB(0xFF, 0xFF, 0xFF));
-    fb_present();
-}
-
 void kmain(uint32_t magic, uint32_t mbi_addr) {
     serial_init();
     serial_printf("\n%s %s (kernel %s) booting\n", OS_NAME, OS_VERSION, KERNEL_NAME);
@@ -96,13 +75,16 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
     memory_init(mbi);
     storage_init();
 
+    keyboard_init();
+    serial_printf("keyboard: ready\n");
+
     if (fb_init(mbi)) {
-        boot_screen_show();
-        for (;;) asm volatile("hlt");
+        surface_t* screen = fb_back_buffer();
+        mouse_init(screen->width, screen->height);
+        gui_main_loop();
     }
 
     /* No usable framebuffer: fall back to the text-mode shell. */
-    keyboard_init();
-    serial_printf("keyboard: ready, starting shell\n");
+    serial_printf("shell: starting in text mode\n");
     shell_run();
 }

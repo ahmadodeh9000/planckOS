@@ -39,6 +39,36 @@ uint32_t strlen(const char* str) {
     return len;
 }
 
+char* strcpy(char* dest, const char* src) {
+    char* d = dest;
+
+    while ((*d++ = *src++)) {
+    }
+    return dest;
+}
+
+char* strcat(char* dest, const char* src) {
+    strcpy(dest + strlen(dest), src);
+    return dest;
+}
+
+char* utoa(uint32_t value, char* out, int base) {
+    const char* digits = "0123456789ABCDEF";
+    char reversed[32];
+    int count = 0;
+
+    do {
+        reversed[count++] = digits[value % base];
+        value /= base;
+    } while (value);
+
+    for (int i = 0; i < count; i++) {
+        out[i] = reversed[count - 1 - i];
+    }
+    out[count] = '\0';
+    return out;
+}
+
 void* memset(void* ptr, int value, size_t count) {
     uint8_t* p = ptr;
 
