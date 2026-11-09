@@ -4,13 +4,14 @@ MAGIC 			equ 0x1BADB002						; magic number
 BOOT_FLAGS		equ 0x00000002						; boot flags
 CHECKSUM		equ -(MAGIC + BOOT_FLAGS)			; checks the validity 
 
-section .text						
+section .multiboot
 	align 4
 	dd MAGIC
 	dd BOOT_FLAGS
 	dd CHECKSUM
 
 									
+section .text
 global start										; main entry
 extern kmain										; extern kmain from kernel.c
 
