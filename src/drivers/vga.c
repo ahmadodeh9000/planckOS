@@ -1,265 +1,197 @@
+/*
+ * vga.c - VGA text-mode output.
+ *
+ * The text buffer at 0xB8000 holds 80x25 cells. Each cell is two bytes:
+ * the character, then an attribute byte (background color << 4 | foreground
+ * color). The blinking hardware cursor is moved through the CRT controller
+ * registers at ports 0x3D4/0x3D5.
+ */
 #include "drivers/vga.h"
 #include "arch/io.h"
 
-/* cursor positions */
-static int32_t index        = 0;
-static int32_t cursor_row   = 0;
-static int32_t cursor_col   = 0;
+#define VGA_MEMORY          0xB8000
+#define VGA_DEFAULT_COLOR   ((VGA_COLOR_BLACK << 4) | VGA_COLOR_WHITE)
+#define RAINBOW_COLORS      15      /* foreground colors 1-15; 0 is black */
 
+#define CRTC_INDEX_PORT     0x3D4
+#define CRTC_DATA_PORT      0x3D5
+#define CRTC_CURSOR_HIGH    0x0E
+#define CRTC_CURSOR_LOW     0x0F
 
-/*
-void set_back_ground_color(uint8_t bg , uint8_t fg) {
-    color = (bg << 4) | fg;
-    char* vga = (char*) VGA_MEMORY;
+/* Backspace never moves into the banner the shell prints on the first two
+   rows. */
+#define BACKSPACE_STOP_ROW  2
 
-    for (int32_t i = 0 ; i < 80 * 25 ; ++i) {
-        vga[i * 2] = ' ';
-        vga[i * 2 + 1] = color;
-    }
-}
-*/
+static int32_t cursor_row = 0;
+static int32_t cursor_col = 0;
 
-static void vga_scroll() {
-    uint16_t* vga = (uint16_t*) VGA_MEMORY;
-    uint8_t clr = (VGA_COLOR_BLACK << 4) | VGA_COLOR_WHITE;
-
-    for (int row = 1; row < VGA_HEIGHT; row++) {
-        for (int col = 0; col < VGA_WIDTH; col++) {
-            vga[(row - 1) * VGA_WIDTH + col] = vga[row * VGA_WIDTH + col];
-        }
-    }
-
-    for (int col = 0; col < VGA_WIDTH; col++) {
-        vga[(VGA_HEIGHT - 1) * VGA_WIDTH + col] = (clr << 8) | ' ';
-    }
+static uint16_t vga_cell(char c, uint8_t color) {
+    return ((uint16_t)color << 8) | (uint8_t)c;
 }
 
-void vga_clear() {
-    uint16_t* vga = (uint16_t*) VGA_MEMORY;
-    uint8_t clr = (VGA_COLOR_BLACK << 4) | VGA_COLOR_WHITE; /* white on black*/
-
-    for (uint32_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; ++i) {
-        vga[i] = (clr << 8) | ' ';
-    }
-
-    cursor_col = 0;
-    cursor_row = 0;
+static uint8_t rainbow_color(int32_t i) {
+    return (i % RAINBOW_COLORS) + 1;
 }
 
-void vga_unpdate_cursor(int row, int col) {
+static void vga_update_cursor(int row, int col) {
     uint16_t pos = row * VGA_WIDTH + col;
 
-    uint8_t low = pos & 0xFF;
-    uint8_t high= (pos >> 8) & 0xFF;
-
-    outportb(0x3D4,0x0F);
-    outportb(0x3D5,low);
-
-    outportb(0x3D4,0x0E);
-    outportb(0x3D5,high);
+    outportb(CRTC_INDEX_PORT, CRTC_CURSOR_LOW);
+    outportb(CRTC_DATA_PORT, pos & 0xFF);
+    outportb(CRTC_INDEX_PORT, CRTC_CURSOR_HIGH);
+    outportb(CRTC_DATA_PORT, (pos >> 8) & 0xFF);
 }
 
-/* prints a single char */
-void print_char(const char c,uint8_t clr) {
+static void vga_scroll(void) {
+    uint16_t* vga = (uint16_t*)VGA_MEMORY;
 
-    if (cursor_col >= VGA_WIDTH) {
-        cursor_row++;
-        cursor_col = 0;
-        
+    for (int i = 0; i < (VGA_HEIGHT - 1) * VGA_WIDTH; i++) {
+        vga[i] = vga[i + VGA_WIDTH];
     }
+    for (int col = 0; col < VGA_WIDTH; col++) {
+        vga[(VGA_HEIGHT - 1) * VGA_WIDTH + col] = vga_cell(' ', VGA_DEFAULT_COLOR);
+    }
+}
 
+static void vga_newline(void) {
+    cursor_row++;
+    cursor_col = 0;
     if (cursor_row >= VGA_HEIGHT) {
         vga_scroll();
         cursor_row = VGA_HEIGHT - 1;
     }
-
-    if(c == '\n') {
-        cursor_row ++;
-        cursor_col = 0;
-
-        if (cursor_row >= VGA_HEIGHT) {
-            vga_scroll();
-            cursor_row = VGA_HEIGHT - 1;
-        }
-
-        vga_unpdate_cursor(cursor_row,cursor_col);
-        
-
-        return;
-    }
-    
-    char* vga = (char*) VGA_MEMORY;
-    index = VGA_WIDTH * cursor_row + cursor_col;
-    
-    vga[index * 2] = c;
-    vga[index * 2 + 1] = clr;
-    
-    cursor_col++;
-    vga_unpdate_cursor(cursor_row,cursor_col);
-
-    
 }
 
-void print_number(int number) {
-    char buffer[12];
-    int32_t index = 0;
+void vga_clear(void) {
+    uint16_t* vga = (uint16_t*)VGA_MEMORY;
 
-    if (number == 0) {
-        print_char('0',VGA_COLOR_WHITE);
+    for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; ++i) {
+        vga[i] = vga_cell(' ', VGA_DEFAULT_COLOR);
+    }
+    cursor_col = 0;
+    cursor_row = 0;
+}
+
+static void print_char(char c, uint8_t color) {
+    if (cursor_col >= VGA_WIDTH) {
+        vga_newline();
+    }
+
+    if (c == '\n') {
+        vga_newline();
+    } else {
+        uint16_t* vga = (uint16_t*)VGA_MEMORY;
+        vga[cursor_row * VGA_WIDTH + cursor_col] = vga_cell(c, color);
+        cursor_col++;
+    }
+    vga_update_cursor(cursor_row, cursor_col);
+}
+
+/* Erase the character before the cursor, painting the blank in 'color'. */
+static void vga_backspace(uint8_t color) {
+    if (cursor_col == 0 && cursor_row == BACKSPACE_STOP_ROW) {
         return;
     }
 
-    if (number < 0) {
-        print_char('-',VGA_COLOR_WHITE);
-        number *= -1;
+    --cursor_col;
+    if (cursor_col < 0) {
+        cursor_col = VGA_WIDTH - 1;
+        --cursor_row;
     }
-
-    while (number > 0) {
-        buffer[index++] = '0' + (number % 10);
-        number /= 10;
-    }
-
-    for (int32_t k = index - 1; k >= 0; --k) {
-        print_char(buffer[k],VGA_COLOR_WHITE);
-    }
+    print_char(' ', color);
+    --cursor_col;
+    vga_update_cursor(cursor_row, cursor_col);
 }
 
-void print_hex(uint32_t num) {
-    char hex[] = "0123456789ABCDEF";
-    char buf[9];
-    int i = 0;
-
-    if (num == 0) {
-        print("0x0");
-        return;
-    }
-
-    while (num > 0) {
-        buf[i++] = hex[num % 16];
-        num /= 16;
-    }
-
-    print("0x");
-
-    while (i--) {
-        putc(buf[i]);
-    }
-}
-
-/* for the keyboard */
 void putc(char c) {
-
-    if (c == '\b') {    /* for backspace */
-
-        if (cursor_col == 0 && cursor_row == 2) {
-            
-            return;
-        }
-        --cursor_col;
-
-        if (cursor_col < 0) {
-            cursor_col = VGA_WIDTH - 1;
-            --cursor_row;
-        }
-
-        print_char(' ',VGA_COLOR_WHITE);
-        --cursor_col;
-        
-        
-    }
-    else {
-        print_char(c,VGA_COLOR_WHITE);
-    }
-
-    vga_unpdate_cursor(cursor_row,cursor_col);
-    
-}
-
-void print_number_rainbow(int number) {
-    char buffer[12];
-    int32_t index = 0;
-
-    if (number == 0) {
-        print_char('0',(index % 15) + 1);
-        return;
-    }
-
-    if (number < 0) {
-        print_char('-',(index % 15) + 1);
-        number *= -1;
-    }
-
-    while (number > 0) {
-        buffer[index++] = '0' + (number % 10);
-        number /= 10;
-    }
-
-    for (int32_t k = index - 1; k >= 0; --k) {
-        print_char(buffer[k],(index % 15) + 1);
-    }
-}
-void print_hex_rainbow(uint32_t num) {
-    char hex[] = "0123456789ABCDEF";
-    char buf[9];
-    int i = 0;
-
-    if (num == 0) {
-        print_rainbow("0x0");
-        return;
-    }
-
-    while (num > 0) {
-        buf[i++] = hex[num % 16];
-        num /= 16;
-    }
-
-    print_rainbow("0x");
-
-    while (i--) {
-        putc_rainbow(buf[i]);
+    if (c == '\b') {
+        vga_backspace(VGA_COLOR_WHITE);
+    } else {
+        print_char(c, VGA_COLOR_WHITE);
     }
 }
 
 void putc_rainbow(char c) {
-
-    if (c == '\b') {    /* for backspace */
-
-        if (cursor_col == 0 && cursor_row == 2) {
-            
-            return;
-        }
-        --cursor_col;
-
-        if (cursor_col < 0) {
-            cursor_col = VGA_WIDTH - 1;
-            --cursor_row;
-        }
-
-        print_char(' ', (cursor_col % 15) + 1);
-        --cursor_col;
-        
-        
+    if (c == '\b') {
+        vga_backspace(rainbow_color(cursor_col));
+    } else {
+        print_char(c, VGA_COLOR_WHITE);
     }
-    else {
-        print_char(c,VGA_COLOR_WHITE);
-    }
-
-    vga_unpdate_cursor(cursor_row,cursor_col);
-    
 }
 
-
-/* prints a whole string */
 void print(const char* str) {
-    for (int32_t i = 0 ; str[i] != '\0'; ++i) {
-       
-        print_char(str[i],VGA_COLOR_WHITE);
+    for (int32_t i = 0; str[i] != '\0'; ++i) {
+        print_char(str[i], VGA_COLOR_WHITE);
     }
 }
 
 void print_rainbow(const char* str) {
-    for (int32_t i = 0 ; str[i] != '\0'; ++i) {
-        print_char(str[i],(i % 15) + 1);
+    for (int32_t i = 0; str[i] != '\0'; ++i) {
+        print_char(str[i], rainbow_color(i));
     }
 }
 
+/* Write 'number' in decimal into 'buf' (at least 12 bytes). */
+static void format_decimal(int number, char* buf) {
+    char digits[11];
+    int count = 0;
+    int len = 0;
+    uint32_t value = number < 0 ? -(uint32_t)number : (uint32_t)number;
+
+    do {
+        digits[count++] = '0' + value % 10;
+        value /= 10;
+    } while (value);
+
+    if (number < 0) {
+        buf[len++] = '-';
+    }
+    while (count) {
+        buf[len++] = digits[--count];
+    }
+    buf[len] = '\0';
+}
+
+/* Write 'number' as "0x..." hex into 'buf' (at least 11 bytes). */
+static void format_hex(uint32_t number, char* buf) {
+    const char* hex = "0123456789ABCDEF";
+    char digits[8];
+    int count = 0;
+    int len = 0;
+
+    do {
+        digits[count++] = hex[number % 16];
+        number /= 16;
+    } while (number);
+
+    buf[len++] = '0';
+    buf[len++] = 'x';
+    while (count) {
+        buf[len++] = digits[--count];
+    }
+    buf[len] = '\0';
+}
+
+void print_number(int number) {
+    char buf[12];
+    format_decimal(number, buf);
+    print(buf);
+}
+
+void print_hex(uint32_t number) {
+    char buf[11];
+    format_hex(number, buf);
+    print(buf);
+}
+
+void print_number_rainbow(int number) {
+    char buf[12];
+    format_decimal(number, buf);
+    print_rainbow(buf);
+}
+
+void print_hex_rainbow(uint32_t number) {
+    char buf[11];
+    format_hex(number, buf);
+    print_rainbow(buf);
+}

@@ -39,7 +39,7 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
     heap_init();
 
     bool has_disk = ata_detect();
-    serial_printf("ata: primary master %s\n", has_disk ? "found" : "missing");
+    serial_printf("ata: primary slave %s\n", has_disk ? "found" : "missing");
     if (has_disk) printf("disk found\n");
     else printf("no disk \n");
 

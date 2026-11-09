@@ -1,16 +1,18 @@
+/*
+ * ata.h - ATA PIO driver for the data disk (primary slave).
+ *
+ * Sectors are 512 bytes; 'lba' is the sector number starting at 0.
+ * Buffers are uint16_t because the data port transfers 16 bits at a time.
+ */
 #ifndef ata_h__
 #define ata_h__
 
 #include "lib/common.h"
 
-// Read 'count' sectors starting at 'lba' into 'buffer'
-// LBA = Logical Block Address, just a sector number starting at 0
-void ata_read(uint32_t lba, uint8_t count, uint16_t *buffer);
+#define ATA_SECTOR_SIZE 512
 
-// Write 'count' sectors starting at 'lba' from 'buffer'
-void ata_write(uint32_t lba, uint8_t count, uint16_t *buffer);
-
-// Returns 1 if a disk is present, 0 if not
-int ata_detect();
+bool ata_detect(void);
+void ata_read(uint32_t lba, uint8_t count, uint16_t* buffer);
+void ata_write(uint32_t lba, uint8_t count, uint16_t* buffer);
 
 #endif

@@ -40,7 +40,7 @@ idt: loaded, PIC remapped
 pmm: ...
 paging: enabled
 heap: ...
-ata: primary master found
+ata: primary slave found
 fat12: 2044 clusters of 32768 bytes
 ```
 
@@ -80,3 +80,81 @@ the next task.
 
 **Known limits.** 10 ms resolution. The 32-bit counter wraps after about 497
 days. `sleep_ms` needs interrupts enabled.
+
+## VGA text console — `drivers/vga.c`
+
+**What it does.** Prints text on the 80x25 text screen. It's used by
+`printf` and the shell, and by the exception handler.
+
+**How it works.** The VGA card maps its text buffer at physical `0xB8000`.
+Each of the 2000 cells is a 16-bit value: the character in the low byte and
+an attribute in the high byte (`background << 4 | foreground`, see
+`enum vga_color`). Writing to the buffer shows the character immediately.
+When the cursor passes the last row, `vga_scroll()` moves every row up by
+one and clears the bottom row.
+
+The blinking hardware cursor is set through the CRT controller. You write a
+register number to port `0x3D4` (`0x0E` = cursor position high byte,
+`0x0F` = low byte), then its value to port `0x3D5`.
+
+**Key functions.** `vga_clear`, `putc`, `print`, `print_number`, `print_hex`,
+and the `*_rainbow` variants, which give each character of a string its own
+color.
+
+**Known limits.** No colors in `printf` apart from the rainbow variants.
+Backspace refuses to move into the first two rows (the shell banner).
+
+## Keyboard — `drivers/keyboard.c`
+
+**What it does.** Reads key presses from the PS/2 keyboard, echoes them on
+screen and gives the shell whole lines through `readline()`.
+
+**How it works.** Each press or release makes the keyboard controller raise
+IRQ1 with one byte, a *scan code* (set 1), in port `0x60`. Press codes are
+below `0x80`, and a key's release code is its press code with bit 7 set.
+The handler:
+
+1. tracks Shift with its press/release codes (`0x2A`/`0x36` and `0xAA`/`0xB6`),
+2. ignores every other release,
+3. turns the code into ASCII through `scancode_map` or `scancode_map_shift`,
+4. appends it to `line_buffer`, echoes it, and marks the line ready on Enter.
+
+`readline()` sleeps with `hlt` until the handler sets `line_ready`. Both
+variables are `volatile` because an interrupt changes them while
+`readline()` loops.
+
+**Key functions.** `keyboard_init()` hooks IRQ1. `readline(buf)` blocks for
+one line; `buf` must hold `KEYBOARD_LINE_MAX` bytes.
+
+**Known limits.** US layout only. No Ctrl/Alt/Caps Lock. Extended keys
+(arrows, `0xE0`-prefixed codes) are ignored. The handler echoes to the VGA
+console directly, which the GUI phases will replace with key events.
+
+## ATA disk — `drivers/ata.c`
+
+**What it does.** Reads and writes 512-byte sectors on the data disk with
+PIO (the CPU moves every word itself).
+
+**How it works.** The primary IDE bus uses ports `0x1F0`-`0x1F7`. The data
+disk is the bus's **slave** drive: QEMU's `-drive ...,index=1` (the classic
+`-hdb`) lands there. Drive-select value `0xF0` means slave + LBA mode, and
+the top 4 bits of the 28-bit LBA go in its low nibble.
+
+A transfer:
+
+1. `ata_start()` writes the drive select, sector count, LBA bytes and the
+   command (`0x20` read, `0x30` write).
+2. For each sector, wait until BSY clears and DRQ is set, then move 256
+   16-bit words through the data port `0x1F0`.
+3. After a write, send CACHE FLUSH (`0xE7`) and wait, so the data really
+   reaches the disk image.
+
+`ata_detect()` sends IDENTIFY (`0xEC`). A status of 0 means no drive. A
+non-zero signature in the LBA mid/high registers means an ATAPI device
+(not a disk).
+
+**Key functions.** `ata_detect()`, `ata_read(lba, count, buf)`,
+`ata_write(lba, count, buf)`.
+
+**Known limits.** Only the primary slave. LBA28 (128 GB max). Busy-waits,
+and never times out if the drive doesn't answer.

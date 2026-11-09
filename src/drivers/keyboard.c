@@ -1,15 +1,27 @@
+/*
+ * keyboard.c - PS/2 keyboard on IRQ1, scan code set 1.
+ *
+ * Every key press or release makes the keyboard controller raise IRQ1 with
+ * one scan code waiting in port 0x60. Press codes are below 0x80; the
+ * release code of a key is its press code | 0x80. The handler turns press
+ * codes into ASCII, echoes them and collects them into a line buffer that
+ * readline() waits on.
+ */
 #include "drivers/keyboard.h"
-#include "arch/idt.h"
-#include "lib/string.h"
 #include "drivers/vga.h"
+#include "arch/idt.h"
 
-#define BUF_SIZE    2048
+#define KEYBOARD_IRQ            1
+#define KEYBOARD_DATA_PORT      0x60
+#define SCANCODE_RELEASE_BIT    0x80
+#define SCANCODE_TABLE_SIZE     128
 
-static char buffer[BUF_SIZE] = {};
-static volatile bool input_ready = false;
-static volatile uint32_t index = 0;
+#define SC_LEFT_SHIFT           0x2A
+#define SC_RIGHT_SHIFT          0x36
+#define SC_LEFT_SHIFT_RELEASE   (SC_LEFT_SHIFT | SCANCODE_RELEASE_BIT)
+#define SC_RIGHT_SHIFT_RELEASE  (SC_RIGHT_SHIFT | SCANCODE_RELEASE_BIT)
 
-static const char scancode_map[128] = {
+static const char scancode_map[SCANCODE_TABLE_SIZE] = {
     0,  0,  '1','2','3','4','5','6','7','8','9','0','-','=','\b',
     '\t','q','w','e','r','t','y','u','i','o','p','[',']','\n',
     0,  'a','s','d','f','g','h','j','k','l',';','\'','`',
@@ -17,7 +29,7 @@ static const char scancode_map[128] = {
     '*', 0, ' '
 };
 
-static const char scancode_map_shift[128] = {
+static const char scancode_map_shift[SCANCODE_TABLE_SIZE] = {
     0,  0,  '!','@','#','$','%','^','&','*','(',')','_','+','\b',
     '\t','Q','W','E','R','T','Y','U','I','O','P','{','}','\n',
     0,  'A','S','D','F','G','H','J','K','L',':','"','~',
@@ -25,72 +37,74 @@ static const char scancode_map_shift[128] = {
     '*', 0, ' '
 };
 
-static bool is_shift_pressed = false;
+/* Shared between the IRQ handler and readline(), hence volatile. */
+static char line_buffer[KEYBOARD_LINE_MAX];
+static volatile uint32_t line_length = 0;
+static volatile bool line_ready = false;
+static bool shift_pressed = false;
 
-
-void keyboard_handler(registers_t* regs) {
-    unsigned char scan_code = inportb(0x60); // what key is pressed
-
-
-    /* checking left and right shift press/release */
-    if (scan_code == 0x2A || scan_code == 0x36) { is_shift_pressed = true; return;} 
-    if (scan_code == 0xAA || scan_code == 0xB6) { is_shift_pressed = false; return;}
-    
-    
-
-    if (scan_code & 0x80) return; 
-
-    char c = is_shift_pressed ? scancode_map_shift[scan_code] : scancode_map[scan_code];
-    if (!c) return; // unmapped
-    
+static void keyboard_add_char(char c) {
     if (c == '\b') {
-        if (index > 0) {
-            --index;
-            buffer[index] = '\0';
+        if (line_length > 0) {
+            line_buffer[--line_length] = '\0';
             putc('\b');
         }
-       
         return;
     }
 
-    if (index < BUF_SIZE - 1) {
-        buffer[index++] = c;
+    if (line_length < KEYBOARD_LINE_MAX - 1) {
+        line_buffer[line_length++] = c;
         putc(c);
     }
-
     if (c == '\n') {
-        buffer[index] = '\0';
-        input_ready = true;
+        line_buffer[line_length] = '\0';
+        line_ready = true;
     }
-
 }
 
+static void keyboard_handler(registers_t* regs) {
+    (void)regs;
+    uint8_t scan_code = inportb(KEYBOARD_DATA_PORT);
 
-
-uint32_t readline(char* s) {
-
-    input_ready = false;
-    index = 0;
-
-    while (!input_ready) {
-        // busy-wait: interrupts still fire and fill the buffer
-        __asm__ volatile("hlt");            // sleep until next interrupt (optional but saves CPU)
+    if (scan_code == SC_LEFT_SHIFT || scan_code == SC_RIGHT_SHIFT) {
+        shift_pressed = true;
+        return;
+    }
+    if (scan_code == SC_LEFT_SHIFT_RELEASE || scan_code == SC_RIGHT_SHIFT_RELEASE) {
+        shift_pressed = false;
+        return;
+    }
+    if (scan_code & SCANCODE_RELEASE_BIT) {
+        return;
     }
 
-    uint32_t len = index;
-    for (uint32_t i = 0; i <= len; i++)    // copy including '\0'
-        s[i] = buffer[i];
+    char c = shift_pressed ? scancode_map_shift[scan_code] : scancode_map[scan_code];
+    if (c) {
+        keyboard_add_char(c);
+    }
+}
 
+uint32_t readline(char* s) {
+    line_ready = false;
+    line_length = 0;
 
+    while (!line_ready) {
+        asm volatile("hlt");    /* sleep until the next interrupt */
+    }
+
+    uint32_t len = line_length;
+    for (uint32_t i = 0; i <= len; i++) {   /* copy including '\0' */
+        s[i] = line_buffer[i];
+    }
     if (len > 0 && s[len - 1] == '\n') {
         s[len - 1] = '\0';
     }
 
-    index = 0;
-    input_ready = false;
+    line_length = 0;
+    line_ready = false;
     return len - 1;
 }
 
-void keyboard_init() {
-    irq_install_handler(1,keyboard_handler);
+void keyboard_init(void) {
+    irq_install_handler(KEYBOARD_IRQ, keyboard_handler);
 }
