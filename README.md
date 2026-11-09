@@ -19,8 +19,8 @@ subsystems, and `docs/` explains how each one works.
   system calls
 - **Memory:** bitmap physical page allocator, paging (64 MB identity map
   plus on-demand mappings), 16 MB kernel heap
-- **Drivers:** PS/2 keyboard and mouse, ATA PIO disk, VGA text, COM1
-  serial log, emulator power-off
+- **Drivers:** PS/2 keyboard and mouse, ATA PIO disk, VGA text, CMOS
+  real-time clock, COM1 serial log, emulator power-off
 - **File system:** FAT12 (root directory): list, read, write, delete
 - **Graphics:** back-buffered framebuffer, surfaces, 8x16 bitmap font
 - **Desktop:** event queue, window manager (z-order, focus, dragging,
@@ -53,7 +53,7 @@ release it.
 | [BOOT](docs/BOOT.md) | GRUB, the Multiboot header, the linker script, `kmain` |
 | [MEMORY](docs/MEMORY.md) | Physical memory manager, paging, the heap |
 | [INTERRUPTS](docs/INTERRUPTS.md) | GDT, IDT, PIC, system calls |
-| [DRIVERS](docs/DRIVERS.md) | Serial, timer, VGA, keyboard, mouse, ATA, FAT12, power |
+| [DRIVERS](docs/DRIVERS.md) | Serial, timer, RTC, VGA, keyboard, mouse, ATA, FAT12, power |
 | [GRAPHICS](docs/GRAPHICS.md) | Framebuffer, surfaces, font |
 | [INPUT](docs/INPUT.md) | The event queue and how input reaches apps |
 | [GUI](docs/GUI.md) | Main loop, window manager, taskbar, launcher, widgets |

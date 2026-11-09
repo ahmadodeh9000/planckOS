@@ -11,6 +11,7 @@
 #include "fs/fat12.h"
 #include "mm/kmalloc.h"
 #include "drivers/power.h"
+#include "drivers/rtc.h"
 #include "lib/string.h"
 
 #define CAT_BUF_SIZE        (512 * 16)  /* largest file 'cat' can show: 8 KB */
@@ -73,6 +74,7 @@ static void cmd_help(shell_t* sh, const char* args) {
         "  info               - show OS info\n"
         "  clear              - clear the screen\n"
         "  echo <text>        - print text on the screen\n"
+        "  date               - show the date and time\n"
         "  ls                 - list files\n"
         "  cat <file>         - print file contents\n"
         "  write <file> <txt> - write text to file\n"
@@ -89,6 +91,16 @@ static void cmd_clear(shell_t* sh, const char* args) {
 
 static void cmd_echo(shell_t* sh, const char* args) {
     console_printf(sh->con, "%s\n", args);
+}
+
+static void cmd_date(shell_t* sh, const char* args) {
+    (void)args;
+    rtc_time_t now;
+    char text[RTC_DATE_LEN + 1];
+
+    rtc_read(&now);
+    rtc_format_date(&now, text);
+    console_printf(sh->con, "%s\n", text);
 }
 
 static void cmd_ls(shell_t* sh, const char* args) {
@@ -182,6 +194,7 @@ static const shell_command commands[] = {
     { "clear", cmd_clear },
     { "ls",    cmd_ls    },
     { "echo",  cmd_echo  },
+    { "date",  cmd_date  },
     { "cat",   cmd_cat   },
     { "write", cmd_write },
     { "del",   cmd_del   },

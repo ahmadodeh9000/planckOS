@@ -65,7 +65,7 @@ src/
   arch/         CPU-specific: GDT, IDT/PIC, interrupt stubs, port I/O,
                 syscalls, Multiboot structures
   mm/           pmm (physical pages), paging, kmalloc (heap)
-  drivers/      serial, timer (PIT), vga (text), keyboard, mouse, ata, power
+  drivers/      serial, timer (PIT), rtc, vga (text), keyboard, mouse, ata, power
   fs/           fat12
   lib/          common types, string/memory helpers, console sinks + printf
   gfx/          surfaces (pixel drawing), framebuffer, font
@@ -101,7 +101,7 @@ upward. Data only travels up through the event queue.
                     |                           || from IRQ handlers
    fs/          fat12                           ||
                     |                           ||
-   drivers/     ata  vga  serial  power   keyboard mouse timer
+   drivers/     ata  vga  serial  power rtc  keyboard mouse timer
                     |                     \______|_____/
    mm/          pmm  paging  kmalloc             |
                                                  |

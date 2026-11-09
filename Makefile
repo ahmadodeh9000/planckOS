@@ -45,7 +45,9 @@ ASM_SRCS := boot/boot.s $(shell find src -name '*.s')
 OBJS     := $(patsubst %,$(BUILD)/%.o,$(ASM_SRCS) $(C_SRCS))
 DEPS     := $(OBJS:.o=.d)
 
-QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio \
+# -rtc base=localtime: the guest's CMOS clock shows the host's local time
+# instead of UTC.
+QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
               -drive file=$(DISK),format=raw,index=1,media=disk
 
 # ---- targets -----------------------------------------------------------

@@ -1,19 +1,21 @@
 /*
- * taskbar.c - launcher button, window buttons and uptime clock.
+ * taskbar.c - launcher button, window buttons and clock.
  *
  * The launcher button is drawn here, but clicks on it are handled by the
  * launcher menu (menu.c), which pops up above it.
  * Window buttons are listed in the order the windows were opened (not
  * z-order), so they don't jump around when you click between windows. The
  * focused window's button is highlighted; clicking a button raises its
- * window.
+ * window. The clock text is read from the RTC once a second
+ * (taskbar_update_clock), not on every redraw, because reading the RTC is
+ * slow port I/O and the taskbar is redrawn on every mouse move.
  */
 #include "gui/taskbar.h"
 #include "gui/theme.h"
 #include "gui/wm.h"
 #include "gui/menu.h"
 #include "gfx/font.h"
-#include "drivers/timer.h"
+#include "drivers/rtc.h"
 #include "lib/string.h"
 
 #define BUTTON_GAP          4
@@ -24,6 +26,7 @@
 #define MAX_TASK_BUTTONS    16
 
 static rect_t bar;
+static char clock_text[RTC_CLOCK_LEN + 1];      /* "HH:MM" */
 
 static rect_t launcher_button(void) {
     rect_t r = { BUTTON_GAP, bar.y + BUTTON_MARGIN_Y, LAUNCHER_WIDTH,
@@ -37,6 +40,13 @@ void taskbar_init(int screen_width, int screen_height) {
     bar.w = screen_width;
     bar.h = THEME_TASKBAR_HEIGHT;
     menu_init(launcher_button());
+    taskbar_update_clock();
+}
+
+void taskbar_update_clock(void) {
+    rtc_time_t now;
+    rtc_read(&now);
+    rtc_format_clock(&now, clock_text);
 }
 
 static rect_t window_button(int slot) {
@@ -91,7 +101,6 @@ void taskbar_draw(surface_t* screen) {
     window_t* list[MAX_TASK_BUTTONS];
     int count = windows_in_open_order(list);
     window_t* focused = wm_focused();
-    char clock[TIMER_UPTIME_LEN + 1];
 
     surface_fill_rect(screen, bar.x, bar.y, bar.w, bar.h, THEME_TASKBAR);
     taskbar_button(screen, launcher_button(), OS_NAME, THEME_TASKBAR_ACTIVE);
@@ -100,7 +109,6 @@ void taskbar_draw(surface_t* screen) {
         taskbar_button(screen, window_button(i), list[i]->title, color);
     }
 
-    timer_format_uptime(clock);
-    font_draw_text(screen, bar.w - (TIMER_UPTIME_LEN + 1) * FONT_WIDTH,
-                   bar.y + (bar.h - FONT_HEIGHT) / 2, clock, THEME_TEXT_LIGHT);
+    font_draw_text(screen, bar.w - (RTC_CLOCK_LEN + 1) * FONT_WIDTH,
+                   bar.y + (bar.h - FONT_HEIGHT) / 2, clock_text, THEME_TEXT_LIGHT);
 }

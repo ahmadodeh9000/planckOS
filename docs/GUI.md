@@ -34,7 +34,7 @@ the launcher menu, and finally the mouse cursor.
 | `EVENT_MOUSE_DOWN` | the launcher menu, else the taskbar, else the window manager |
 | `EVENT_MOUSE_MOVE` / `_UP` | the menu (for hover) and the window manager |
 | `EVENT_KEY` | the window manager, which passes it to the focused window |
-| `EVENT_TIMER` | the window manager (every window's `on_timer`); the clock always redraws |
+| `EVENT_TIMER` | the taskbar clock (`taskbar_update_clock`) and the window manager (every window's `on_timer`); the screen always redraws |
 
 **Key functions.** `gui_main_loop()`. Everything else is static.
 
@@ -130,8 +130,8 @@ say) would be more ASCII-art tables plus a way for windows to choose one.
 ## Taskbar — `gui/taskbar.c`
 
 **What it does.** The 28 px bar at the bottom of the screen, from left to
-right: the launcher button, one button per open window, and the uptime
-clock (`HH:MM:SS`).
+right: the launcher button, one button per open window, and a clock
+showing the time of day (`HH:MM`).
 
 **How it works.**
 
@@ -144,13 +144,16 @@ clock (`HH:MM:SS`).
   `taskbar_mouse_down()` first. If the press was on the bar, the taskbar
   keeps it; otherwise it goes to the window manager. Windows can't be
   dragged under the bar (`wm_init` gets the screen height minus the bar).
-- *The clock.* The PIT handler pushes an `EVENT_TIMER` once a second. That
-  wakes the main loop, which redraws, and the clock shows
-  `timer_ticks() / TIMER_HZ` as hours, minutes and seconds.
+- *The clock.* The PIT handler pushes an `EVENT_TIMER` once a second. On
+  that event `gui_dispatch` calls `taskbar_update_clock()`, which reads the
+  CMOS real-time clock (`drivers/rtc.c`) and keeps the `"HH:MM"` text.
+  `taskbar_draw` only draws that cached text. The taskbar is redrawn on
+  every mouse move, and reading the RTC each time would mean slow port I/O
+  per frame.
 
 **Extending it.** A minimize feature would hide windows and use the taskbar
-buttons to bring them back. A real-time clock would read the CMOS RTC
-(ports `0x70`/`0x71`) instead of showing uptime.
+buttons to bring them back. Clicking the clock could open a small calendar
+window built from `rtc_read()`.
 
 **Known limits.** Buttons don't shrink, so only about five window buttons
 fit at 1024 px.

@@ -64,7 +64,8 @@ writes the divisor `1193182 / 100` to port `0x40` and installs the IRQ0
 handler.
 
 The handler does `ticks++` and, once every `TIMER_HZ` ticks, pushes an
-`EVENT_TIMER` so the GUI can update its clock. Keep IRQ handlers this small:
+`EVENT_TIMER` so the GUI can refresh the taskbar clock and any window that
+has an `on_timer`. Keep IRQ handlers this small:
 they run with interrupts off. `ticks` is `volatile` because `sleep_ms()` polls it in
 a loop while an interrupt changes it underneath.
 
@@ -75,7 +76,7 @@ a loop while an interrupt changes it underneath.
 | `timer_install()` | Program the PIT and hook IRQ0. Called from `kmain` before `sti`. |
 | `timer_ticks()` | Ticks since boot. Uptime in seconds = `timer_ticks() / TIMER_HZ`. |
 | `sleep_ms(ms)` | Halt until at least `ms` milliseconds have passed (10 ms resolution). |
-| `timer_format_uptime(buf)` | Uptime as `"HH:MM:SS"` (used by the taskbar clock and About). |
+| `timer_format_uptime(buf)` | Uptime as `"HH:MM:SS"` (used by About). |
 
 **Extending it.** A scheduler would hook in here: every N ticks, switch to
 the next task.

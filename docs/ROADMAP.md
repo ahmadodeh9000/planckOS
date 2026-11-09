@@ -16,7 +16,7 @@ bitmap PMM, paging, a heap, a PS/2 keyboard, ATA PIO, FAT12 and a shell.
   an 8x16 font.
 - *Input:* PS/2 mouse, and an event queue fed by IRQ handlers.
 - *Desktop:* window manager (z-order, focus, dragging, close), taskbar with
-  uptime clock, launcher menu, widget helpers.
+  a real-time clock (CMOS RTC), launcher menu, widget helpers.
 - *Apps:* Terminal (the same shell as text mode, through console sinks),
   Files, Notepad, About, Shut down.
 - *Docs:* this folder.
@@ -32,8 +32,6 @@ Roughly from easiest to hardest. Each one says where to start.
   give Notepad and `widget_textbox` an insertion point.
 - **Partial redraws.** Keep a "dirty rectangle" in `gui.c` and add
   `fb_present_rect()`, so a mouse move copies a few KB instead of 3 MB.
-- **Real-time clock.** Read the CMOS RTC (ports `0x70`/`0x71`) and show the
-  time of day in the taskbar.
 - **Delete confirmation** in Files, and a "New" button that opens Notepad.
 
 ### Medium

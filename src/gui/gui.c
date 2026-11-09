@@ -25,8 +25,9 @@ static int mouse_y;
 static bool gui_dispatch(const event_t* e) {
     switch (e->type) {
         case EVENT_TIMER:
+            taskbar_update_clock();
             wm_handle_event(e);
-            return true;    /* the taskbar clock shows a new second */
+            return true;    /* the taskbar clock may show a new minute */
         case EVENT_KEY:
             return wm_handle_event(e);
         case EVENT_MOUSE_DOWN:

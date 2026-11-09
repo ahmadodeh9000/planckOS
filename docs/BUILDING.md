@@ -19,7 +19,7 @@ refuses to compile unless the target is 32-bit x86 (`__i386__`).
 | Target | What it does |
 |--------|--------------|
 | `make` / `make all` / `make iso` | Builds `build/planckOS.iso`. Never starts QEMU. |
-| `make run` | Boots the ISO in a QEMU window with `disk.img` as the second IDE disk. Serial output (COM1) goes to your terminal. |
+| `make run` | Boots the ISO in a QEMU window with `disk.img` as the second IDE disk. Serial output (COM1) goes to your terminal. The RTC starts at your local time (`-rtc base=localtime`). |
 | `make run-headless` | Same as `make run` but without a window. Handy for reading the serial log. |
 | `make disk` | Creates a blank 64 MB FAT12 `disk.img`, but only if it doesn't already exist. |
 | `make clean` | Deletes `build/`. |
