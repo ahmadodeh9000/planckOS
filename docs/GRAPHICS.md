@@ -29,10 +29,35 @@ example the EGA text mode you get with `gfxpayload=text`) makes it return
 with a 32-bit palette address, so they start at offset 112, not 110. Our
 packed `multiboot_info_t` has two padding bytes there.
 
+## Surfaces — `gfx/surface.c`
+
+**What it does.** A `surface_t` is a block of 32-bit `0x00RRGGBB` pixels
+with a width and height. Every drawing function takes the surface to draw
+on. The screen's back buffer is a surface, and so is each window's own
+buffer (in the GUI phase), so the same code draws everywhere.
+
+**How it works.** Pixel `(x, y)` is `pixels[y * width + x]`. `clip_rect()`
+cuts every rectangle down to the surface. For blits it also shifts the
+source position, so drawing an image at a negative `x` shows the right part
+of it. Rows are filled with `memset32` (`rep stosl`) and copied with
+`memcpy` (`rep movsl`).
+
+**Key functions.**
+
+| Function | Purpose |
+|----------|---------|
+| `RGB(r, g, b)` | Build a color. |
+| `surface_put_pixel(s, x, y, color)` | One pixel. |
+| `surface_fill_rect(s, x, y, w, h, color)` | Solid rectangle. |
+| `surface_blit(dst, x, y, src)` | Copy all of `src` onto `dst` at `(x, y)`. |
+
+**Extending it.** A blit with a "transparent" color key would let you draw
+shaped images such as the mouse cursor. Lines and outlines can be built
+from `surface_fill_rect` with a width or height of 1.
+
 ## Framebuffer — `gfx/fb.c`
 
-**What it does.** Maps video memory, keeps a back buffer, and offers basic
-drawing: pixels, filled rectangles and blits (copying a block of pixels).
+**What it does.** Maps video memory, owns the back buffer and shows it.
 
 **How it works.**
 
@@ -40,28 +65,19 @@ drawing: pixels, filled rectangles and blits (copying a block of pixels).
   64 MB identity map. `fb_init()` identity-maps `pitch * height` bytes
   with `paging_map()`, one page at a time and write-through, so writes go
   straight to the card.
-- *Back buffer.* A `width * height` array of `uint32_t` on the heap (3 MB
-  at 1024x768). All drawing goes there. `fb_present()` copies it to video
+- *Back buffer.* A `width * height` surface on the heap (3 MB at
+  1024x768). All drawing goes there. `fb_present()` copies it to video
   memory row by row, because a screen row is `pitch` bytes, which can be
   more than `width * 4`. Drawing off-screen means the user never sees a
   half-drawn frame, and RAM is much faster than video memory.
-- *Clipping.* `fb_clip()` cuts every rectangle down to the screen. For
-  blits it also shifts the source position, so drawing at a negative `x`
-  shows the right part of the image.
-- *Speed.* Rows are filled with `memset32` (`rep stosl`) and copied with
-  `memcpy` (`rep movsl`).
 
 **Key functions.**
 
 | Function | Purpose |
 |----------|---------|
 | `fb_init(mbi)` | Check the mode, map it, allocate the back buffer. |
-| `fb_width()`, `fb_height()` | Screen size in pixels. |
-| `fb_put_pixel(x, y, color)` | One pixel. |
-| `fb_fill_rect(x, y, w, h, color)` | Solid rectangle. |
-| `fb_blit(x, y, w, h, pixels, stride)` | Copy a pixel block; `stride` = pixels per source row. |
+| `fb_back_buffer()` | The surface to draw the next frame on. |
 | `fb_present()` | Show the back buffer. |
-| `FB_RGB(r, g, b)` | Build a `0x00RRGGBB` color. |
 
 **Extending it.** `fb_present_rect()` could copy only the part that changed,
 which is a big win when just the mouse cursor moves. Supporting other pixel

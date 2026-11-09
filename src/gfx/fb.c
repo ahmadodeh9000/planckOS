@@ -6,7 +6,8 @@
  * (QEMU: 0xFD000000), outside our 64 MB identity map, so fb_init() maps it
  * page by page with paging_map(). Drawing happens in a back buffer on the
  * heap; fb_present() copies it to video memory row by row, because a
- * screen row ('pitch' bytes) can be longer than width * 4.
+ * screen row ('pitch' bytes) can be longer than width * 4. The drawing
+ * functions themselves are in surface.c.
  */
 #include "gfx/fb.h"
 #include "mm/kmalloc.h"
@@ -23,10 +24,8 @@
 #define ADDRESS_SPACE_END   0x100000000ULL
 
 static uint8_t*  front_buffer;      /* video memory           */
-static uint32_t* back_buffer;       /* width * height pixels  */
-static uint32_t  screen_width;
-static uint32_t  screen_height;
 static uint32_t  screen_pitch;      /* bytes per screen row   */
+static surface_t back_buffer;
 
 /* We only draw 0x00RRGGBB pixels, so accept nothing else. */
 static bool fb_mode_supported(multiboot_info_t* mbi) {
@@ -58,94 +57,36 @@ bool fb_init(multiboot_info_t* mbi) {
         return false;
     }
 
-    uint32_t phys = (uint32_t)mbi->framebuffer_addr;
-    screen_width  = mbi->framebuffer_width;
-    screen_height = mbi->framebuffer_height;
-    screen_pitch  = mbi->framebuffer_pitch;
+    uint32_t phys   = (uint32_t)mbi->framebuffer_addr;
+    uint32_t width  = mbi->framebuffer_width;
+    uint32_t height = mbi->framebuffer_height;
+    screen_pitch    = mbi->framebuffer_pitch;
 
-    if (!fb_map(phys, screen_pitch * screen_height)) {
+    if (!fb_map(phys, screen_pitch * height)) {
         serial_printf("fb: could not map video memory\n");
         return false;
     }
-    back_buffer = kmalloc(screen_width * screen_height * FB_BYTES_PER_PIXEL);
-    if (!back_buffer) {
+    back_buffer.pixels = kmalloc(width * height * FB_BYTES_PER_PIXEL);
+    back_buffer.width  = width;
+    back_buffer.height = height;
+    if (!back_buffer.pixels) {
         serial_printf("fb: no memory for the back buffer\n");
         return false;
     }
     front_buffer = (uint8_t*)phys;
 
-    serial_printf("fb: %ux%u, pitch %u, at %x\n", screen_width, screen_height, screen_pitch, phys);
+    serial_printf("fb: %ux%u, pitch %u, at %x\n", width, height, screen_pitch, phys);
     return true;
 }
 
-uint32_t fb_width(void) {
-    return screen_width;
-}
-
-uint32_t fb_height(void) {
-    return screen_height;
-}
-
-void fb_put_pixel(int x, int y, uint32_t color) {
-    if (x >= 0 && y >= 0 && (uint32_t)x < screen_width && (uint32_t)y < screen_height) {
-        back_buffer[y * screen_width + x] = color;
-    }
-}
-
-/*
- * Shrink the rectangle (x, y, w, h) to the part that is on screen. Also
- * moves (src_x, src_y) by the amount cut off the left/top, so blits stay
- * aligned with their source. Returns false if nothing is left.
- */
-static bool fb_clip(int* x, int* y, int* w, int* h, int* src_x, int* src_y) {
-    if (*x < 0) {
-        *w += *x;
-        *src_x -= *x;
-        *x = 0;
-    }
-    if (*y < 0) {
-        *h += *y;
-        *src_y -= *y;
-        *y = 0;
-    }
-    if (*x + *w > (int)screen_width) {
-        *w = screen_width - *x;
-    }
-    if (*y + *h > (int)screen_height) {
-        *h = screen_height - *y;
-    }
-    return *w > 0 && *h > 0;
-}
-
-void fb_fill_rect(int x, int y, int w, int h, uint32_t color) {
-    int unused_x = 0;
-    int unused_y = 0;
-
-    if (!fb_clip(&x, &y, &w, &h, &unused_x, &unused_y)) {
-        return;
-    }
-    for (int row = 0; row < h; row++) {
-        memset32(&back_buffer[(y + row) * screen_width + x], color, w);
-    }
-}
-
-void fb_blit(int x, int y, int w, int h, const uint32_t* pixels, int stride) {
-    int src_x = 0;
-    int src_y = 0;
-
-    if (!fb_clip(&x, &y, &w, &h, &src_x, &src_y)) {
-        return;
-    }
-    for (int row = 0; row < h; row++) {
-        const uint32_t* src = &pixels[(src_y + row) * stride + src_x];
-        memcpy(&back_buffer[(y + row) * screen_width + x], src, w * FB_BYTES_PER_PIXEL);
-    }
+surface_t* fb_back_buffer(void) {
+    return &back_buffer;
 }
 
 void fb_present(void) {
-    uint32_t row_bytes = screen_width * FB_BYTES_PER_PIXEL;
+    uint32_t row_bytes = back_buffer.width * FB_BYTES_PER_PIXEL;
 
-    for (uint32_t row = 0; row < screen_height; row++) {
-        memcpy(front_buffer + row * screen_pitch, &back_buffer[row * screen_width], row_bytes);
+    for (int row = 0; row < back_buffer.height; row++) {
+        memcpy(front_buffer + row * screen_pitch, &back_buffer.pixels[row * back_buffer.width], row_bytes);
     }
 }

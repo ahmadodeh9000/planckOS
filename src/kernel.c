@@ -61,13 +61,14 @@ static void storage_init(void) {
 
 /* Placeholder until the window manager exists: shows that drawing works. */
 static void boot_screen_show(void) {
-    uint32_t w = fb_width();
-    uint32_t h = fb_height();
+    surface_t* screen = fb_back_buffer();
+    int w = screen->width;
+    int h = screen->height;
 
-    fb_fill_rect(0, 0, w, h, FB_RGB(0x20, 0x4A, 0x87));
-    fb_fill_rect(w / 4, h / 4, w / 2, h / 2, FB_RGB(0xEE, 0xEE, 0xEC));
-    fb_fill_rect(w / 4, h / 4, w / 2, 24, FB_RGB(0x34, 0x65, 0xA4));
-    fb_fill_rect(-50, h - 40, w + 100, 40, FB_RGB(0x2E, 0x34, 0x36));
+    surface_fill_rect(screen, 0, 0, w, h, RGB(0x20, 0x4A, 0x87));
+    surface_fill_rect(screen, w / 4, h / 4, w / 2, h / 2, RGB(0xEE, 0xEE, 0xEC));
+    surface_fill_rect(screen, w / 4, h / 4, w / 2, 24, RGB(0x34, 0x65, 0xA4));
+    surface_fill_rect(screen, -50, h - 40, w + 100, 40, RGB(0x2E, 0x34, 0x36));
     fb_present();
 }
 
