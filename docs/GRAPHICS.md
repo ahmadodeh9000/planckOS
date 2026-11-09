@@ -85,3 +85,35 @@ formats means converting colors in `fb_present()`.
 
 **Known limits.** 32-bit RGB modes only. A full `fb_present()` copies 3 MB
 every time.
+
+## Font — `gfx/font.c`
+
+**What it does.** Draws text with an 8x16 bitmap font (printable ASCII,
+characters 32-126).
+
+**Where the font comes from.** It's the classic 8x16 VGA font as shipped in
+SeaBIOS's VGA BIOS (`vgasrc/vgafonts.c`, GNU LGPL v3), which QEMU includes
+as `vgabios-stdvga.bin`. The 95 glyphs were copied out of that ROM into a C
+array. LGPL v3 data can be used in this GPL v3 project. The credit sits at
+the top of `font.c`.
+
+**How it works.** Each glyph is 16 bytes, one per pixel row from top to
+bottom. In each byte bit 7 is the leftmost pixel. `font_draw_char()` walks
+the 16 x 8 bits and calls `surface_put_pixel()` for every 1 bit, so the
+background shows through and text can be drawn on any color. Characters
+outside 32-126 are drawn as `?`.
+
+**Key functions.**
+
+| Function | Purpose |
+|----------|---------|
+| `font_draw_char(s, x, y, c, color)` | One character, top-left at `(x, y)`. |
+| `font_draw_text(s, x, y, text, color)` | A string on one line, `FONT_WIDTH` (8) pixels per character. |
+
+**Extending it.** For box-drawing or accented characters, extend the table
+past 126 (the ROM has all 256) and change `LAST_GLYPH`. A text-with-
+background variant would fill an `8 x 16` cell first, which is useful for a
+terminal.
+
+**Known limits.** One font and one size. No `\n` handling in
+`font_draw_text`.

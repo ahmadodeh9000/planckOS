@@ -18,6 +18,7 @@
 #include "drivers/ata.h"
 #include "fs/fat12.h"
 #include "gfx/fb.h"
+#include "gfx/font.h"
 #include "shell/shell.h"
 
 #if !defined(__i386__)
@@ -69,6 +70,15 @@ static void boot_screen_show(void) {
     surface_fill_rect(screen, w / 4, h / 4, w / 2, h / 2, RGB(0xEE, 0xEE, 0xEC));
     surface_fill_rect(screen, w / 4, h / 4, w / 2, 24, RGB(0x34, 0x65, 0xA4));
     surface_fill_rect(screen, -50, h - 40, w + 100, 40, RGB(0x2E, 0x34, 0x36));
+
+    int x = w / 4 + FONT_WIDTH;
+    int y = h / 4 + 4;
+    font_draw_text(screen, x, y, OS_NAME " " OS_VERSION " - kernel " KERNEL_NAME, RGB(0xFF, 0xFF, 0xFF));
+    font_draw_text(screen, x, y + 2 * FONT_HEIGHT, "Framebuffer graphics are working.", RGB(0, 0, 0));
+    font_draw_text(screen, x, y + 4 * FONT_HEIGHT, " !\"#$%&'()*+,-./0123456789:;<=>?", RGB(0x20, 0x4A, 0x87));
+    font_draw_text(screen, x, y + 5 * FONT_HEIGHT, "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_", RGB(0x20, 0x4A, 0x87));
+    font_draw_text(screen, x, y + 6 * FONT_HEIGHT, "`abcdefghijklmnopqrstuvwxyz{|}~", RGB(0x20, 0x4A, 0x87));
+    font_draw_text(screen, w - 9 * FONT_WIDTH, h - 28, "00:00:00", RGB(0xFF, 0xFF, 0xFF));
     fb_present();
 }
 
