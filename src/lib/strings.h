@@ -1,7 +1,7 @@
 #ifndef strings_h__
 #define strings_h__
 
-#include "common.h"
+#include "lib/common.h"
 
 int32_t strcmp(const char* str1, const char *str2);
 uint32_t strlen(const char* str);

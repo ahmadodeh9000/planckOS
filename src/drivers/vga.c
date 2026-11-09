@@ -1,5 +1,5 @@
-#include "vga.h"
-#include "util.h"
+#include "drivers/vga.h"
+#include "lib/util.h"
 
 /* cursor positions */
 static int32_t index        = 0;

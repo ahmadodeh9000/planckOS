@@ -1,6 +1,6 @@
-#include "keyboard.h"
-#include "idt/idt.h"
-#include "strings.h"
+#include "drivers/keyboard.h"
+#include "arch/idt.h"
+#include "lib/strings.h"
 
 #define BUF_SIZE    2048
 

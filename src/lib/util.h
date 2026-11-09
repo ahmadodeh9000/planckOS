@@ -1,8 +1,8 @@
 #ifndef util_h__
 #define util_h__
 
-#include "common.h"
-#include "vga.h"
+#include "lib/common.h"
+#include "drivers/vga.h"
 
 void* kmemset(void* ptr, int32_t value, uint32_t count);
 void outportb(uint16_t port, uint8_t value);

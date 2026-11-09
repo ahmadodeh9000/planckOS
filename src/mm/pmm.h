@@ -1,7 +1,7 @@
 #ifndef pmm_h__
 #define pmm_h__
 
-#include "common.h"
+#include "lib/common.h"
 
 extern uint32_t kernel_start;
 extern uint32_t kernel_end;

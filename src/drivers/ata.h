@@ -1,7 +1,7 @@
 #ifndef ata_h__
 #define ata_h__
 
-#include "common.h"
+#include "lib/common.h"
 
 // Read 'count' sectors starting at 'lba' into 'buffer'
 // LBA = Logical Block Address, just a sector number starting at 0

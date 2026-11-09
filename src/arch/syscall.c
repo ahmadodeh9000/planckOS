@@ -1,6 +1,6 @@
-#include "syscall.h"
-#include "common.h"
-#include "kmalloc.h"
+#include "arch/syscall.h"
+#include "lib/common.h"
+#include "mm/kmalloc.h"
 
 /* handling system calls*/
 void syscall_handler(registers_t* regs) {

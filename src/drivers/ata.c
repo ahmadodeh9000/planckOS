@@ -1,5 +1,5 @@
-#include "ata.h"
-#include "util.h"
+#include "drivers/ata.h"
+#include "lib/util.h"
 
 // ATA port numbers for primary bus
 #define ATA_DATA        0x1F0   // read/write data

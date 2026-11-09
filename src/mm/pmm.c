@@ -1,5 +1,5 @@
-#include "pmm.h"
-#include "util.h"
+#include "mm/pmm.h"
+#include "lib/util.h"
 
 /* constants for paging*/
 

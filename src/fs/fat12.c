@@ -1,7 +1,7 @@
-#include "fat12.h"
-#include "ata.h"
-#include "kmalloc.h"
-#include "util.h"
+#include "fs/fat12.h"
+#include "drivers/ata.h"
+#include "mm/kmalloc.h"
+#include "lib/util.h"
 
 /* ───────────────────────────────────────────────
    All layout values are derived from the BPB

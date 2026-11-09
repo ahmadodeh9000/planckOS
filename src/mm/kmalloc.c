@@ -1,5 +1,5 @@
-#include "kmalloc.h"
-#include "util.h"
+#include "mm/kmalloc.h"
+#include "lib/util.h"
 
 extern uint32_t kernel_end;
 

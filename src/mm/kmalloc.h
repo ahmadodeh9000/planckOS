@@ -1,7 +1,7 @@
 #ifndef kmalloc_h__
 #define kmalloc_h__
 
-#include "common.h"
+#include "lib/common.h"
 
 typedef struct block_header{
     size_t size;

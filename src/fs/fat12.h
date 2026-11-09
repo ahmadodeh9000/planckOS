@@ -1,7 +1,7 @@
 #ifndef fat12_h__
 #define fat12_h__
 
-#include "common.h"
+#include "lib/common.h"
 
 typedef struct {
     uint8_t jump[3];

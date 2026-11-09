@@ -1,7 +1,7 @@
 #ifndef vga_h__
 #define vga_h__
 
-#include "common.h"
+#include "lib/common.h"
 
 /* VGA constnats */
 #define VGA_WIDTH   80

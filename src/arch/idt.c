@@ -1,6 +1,6 @@
-#include "idt.h"
-#include "../util.h"
-#include "../syscall.h"
+#include "arch/idt.h"
+#include "lib/util.h"
+#include "arch/syscall.h"
 
 #define IDT_ENTRIES 256
 

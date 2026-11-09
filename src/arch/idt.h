@@ -1,8 +1,8 @@
 #ifndef idt_h__
 #define idt_h__
 
-#include "../common.h"
-#include "../util.h"
+#include "lib/common.h"
+#include "lib/util.h"
 
 typedef struct {
     uint16_t low_offset;

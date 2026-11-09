@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "lib/strings.h"
 
 
 int32_t strcmp(const char* str1, const char* str2) {

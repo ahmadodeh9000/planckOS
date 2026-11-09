@@ -1,9 +1,9 @@
-#include "shell.h"
-#include "strings.h"
-#include "keyboard.h"
-#include "util.h"
-#include "kmalloc.h"
-#include "fat12.h"
+#include "shell/shell.h"
+#include "lib/strings.h"
+#include "drivers/keyboard.h"
+#include "lib/util.h"
+#include "mm/kmalloc.h"
+#include "fs/fat12.h"
 
 #define CAT_BUF_SIZE (512 * 16)   /* 8 KB — adjust if bigger files */
 

@@ -1,5 +1,5 @@
-#include "gdt.h"
-#include "../util.h"
+#include "arch/gdt.h"
+#include "lib/util.h"
 
 #define GDT_ENTRIES 6
 

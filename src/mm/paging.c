@@ -1,7 +1,7 @@
-#include "paging.h"
-#include "pmm.h"
-#include "common.h"
-#include "util.h"
+#include "mm/paging.h"
+#include "mm/pmm.h"
+#include "lib/common.h"
+#include "lib/util.h"
 
 #define PAGE_SIZE   4096
 #define PAGE_PRESENT    (1 << 0)        /* page exist           */

@@ -1,7 +1,7 @@
 #ifndef gdt_h__
 #define gdt_h__
 
-#include "../common.h"
+#include "lib/common.h"
 
 typedef struct {
     uint16_t limit;         // lower 16 bit limit 
