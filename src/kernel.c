@@ -17,7 +17,6 @@
 #endif
 
 
-extern void user_app();
 
 
 

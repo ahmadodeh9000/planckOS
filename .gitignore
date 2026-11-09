@@ -1,0 +1,14 @@
+# build output
+build/
+*.o
+*.d
+
+# old build locations
+/planckOS.iso
+/planck/
+
+# local data disk (see README)
+/disk.img
+
+# macOS
+.DS_Store
