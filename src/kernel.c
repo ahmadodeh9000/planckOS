@@ -17,7 +17,7 @@
 #error "This needs to be compiled with a ix86-elf compiler"
 #endif
 
-#define MULTIBOOT_BOOTLOADER_MAGIC 0x2BADB002
+
 
 void kmain(uint32_t magic, uint32_t mbi_addr) {
     serial_init();

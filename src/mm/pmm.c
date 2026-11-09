@@ -1,36 +1,64 @@
+/*
+ * pmm.c - bitmap allocator for physical pages.
+ *
+ * One bit per 4 KB page: 1 = used, 0 = free. Everything starts out used.
+ * Only RAM that GRUB's memory map calls available is freed, and then the
+ * low 1 MB and the kernel image are reserved again. The heap reserves its
+ * own range with pmm_reserve_region() (see kmalloc.c).
+ */
 #include "mm/pmm.h"
 #include "drivers/serial.h"
 #include "lib/printf.h"
+#include "lib/string.h"
 
-/* constants for paging*/
+#define BITS_PER_WORD       32
+#define MAX_PAGES           (1024 * 1024)               /* 4 GB / 4 KB */
+#define BITMAP_WORDS        (MAX_PAGES / BITS_PER_WORD)
+#define WORD_ALL_USED       0xFFFFFFFF
+#define LOW_MEMORY_END      0x100000                    /* 1 MB: BIOS, VGA, ROMs */
+#define ADDRESS_SPACE_END   0x100000000ULL              /* 4 GB, no PAE */
+#define KB                  1024
 
-#define PAGE_SIZE   4096
-#define MAX_PAGES   (1024 * 1024)       // 4GB of RAM
-#define BITMAP_SIZE (MAX_PAGES / 32)    
-
-/* bitmaps */
-static uint32_t bitmap[BITMAP_SIZE];
+static uint32_t bitmap[BITMAP_WORDS];
 static uint32_t total_pages = 0;
 static uint32_t used_pages = 0;
 
-
-/* |-------------BITMAPS HELPERS-----------------| */
-
-/* mark the page as used */
 static void bitmap_set(uint32_t page) {
-    bitmap[page/32] |= (1 << (page % 32)); 
+    bitmap[page / BITS_PER_WORD] |= (1u << (page % BITS_PER_WORD));
 }
-/* set the page free */
+
 static void bitmap_clear(uint32_t page) {
-    bitmap[page/32] &= ~(1 << (page % 32)); 
-}
-/* check if the page is used*/
-static int32_t bitmap_test(uint32_t page) {     
-    return bitmap[page/32] & (1 << (page % 32));
+    bitmap[page / BITS_PER_WORD] &= ~(1u << (page % BITS_PER_WORD));
 }
 
+static bool bitmap_test(uint32_t page) {
+    return bitmap[page / BITS_PER_WORD] & (1u << (page % BITS_PER_WORD));
+}
 
-/* Mark every page touching [start, start + size) as used. */
+static void pmm_free_region(uint32_t first_page, uint32_t page_count) {
+    for (uint32_t page = first_page; page < first_page + page_count; ++page) {
+        if (page < total_pages && bitmap_test(page)) {
+            bitmap_clear(page);
+            used_pages--;
+        }
+    }
+}
+
+/* Free every page that GRUB's memory map reports as available RAM. */
+static void pmm_free_available_ram(multiboot_info_t* mbi) {
+    uint32_t entry_addr = mbi->mmap_addr;
+    uint32_t mmap_end   = mbi->mmap_addr + mbi->mmap_length;
+
+    while (entry_addr < mmap_end) {
+        mmap_entry_t* entry = (mmap_entry_t*)entry_addr;
+
+        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE && entry->addr < ADDRESS_SPACE_END) {
+            pmm_free_region(entry->addr / PAGE_SIZE, entry->len / PAGE_SIZE);
+        }
+        entry_addr += entry->size + sizeof(entry->size);
+    }
+}
+
 void pmm_reserve_region(uint32_t start, uint32_t size) {
     uint32_t first = start / PAGE_SIZE;
     uint32_t last  = (start + size + PAGE_SIZE - 1) / PAGE_SIZE;
@@ -43,90 +71,49 @@ void pmm_reserve_region(uint32_t start, uint32_t size) {
     }
 }
 
-void pmm_init(multiboot_info_t *mbi) {
-    if (!(mbi->flags & (1 << 6))) {
+void pmm_init(multiboot_info_t* mbi) {
+    if (!(mbi->flags & MULTIBOOT_FLAG_MMAP)) {
         printf("There are no memory map from grub\n");
         return;
     }
 
-    // Total RAM in bytes = (mem_upper + 1024) KB converted to bytes
-    // mem_upper is KB above 1MB, mem_lower is KB below 1MB (usually 640)
-
-    uint32_t total_ram = (mbi->mem_upper + 1024) * 1024;
-    total_pages = (total_ram / PAGE_SIZE);
-
-    // marking everything as used for safty
-
-    for (uint32_t i = 0; i < BITMAP_SIZE; ++i) {
-        //          0xFFFFFFFF;
-        bitmap[i] = 0xFFFFFFFF;
-    }
-
+    total_pages = (mbi->mem_upper + LOW_MEMORY_END / KB) * KB / PAGE_SIZE;
+    memset(bitmap, 0xFF, sizeof(bitmap));
     used_pages = total_pages;
 
-    mmap_entry_t* entry = (mmap_entry_t*) mbi->mmap_addr;
+    pmm_free_available_ram(mbi);
 
-    while ((uint32_t) entry < mbi->mmap_addr + mbi->mmap_length) {
-        /* type 1 => free/ stable */
-        /* Only 32-bit physical addresses are usable without PAE. */
-        if (entry->type == 1 && entry->addr < 0x100000000ULL) {
-            uint32_t page_start = entry->addr / PAGE_SIZE;
-            uint32_t page_count = entry->len / PAGE_SIZE;
-
-            for (uint32_t i = 0; i < page_count ; ++i) {
-                uint32_t page = page_start + i;
-
-                if (page < total_pages && bitmap_test(page)) {
-                    bitmap_clear(page);
-                    used_pages--;
-                }
-            }
-        }
-
-
-        entry = (mmap_entry_t*)((uint32_t) entry + entry->size + sizeof(uint32_t));
-    }
-
-
-    // Step 3: mark the first 1MB as used (BIOS, VGA buffer, etc. live here)
-    // Even if GRUB said it's free, we must never touch it
-    uint32_t low_pages = 0x100000 / PAGE_SIZE;  // 0x100000 = 1MB
-
-    pmm_reserve_region(0, low_pages * PAGE_SIZE);
-
-    /* The kernel image itself must never be handed out as a free page. */
-    pmm_reserve_region((uint32_t)kernel_start,
-                       (uint32_t)kernel_end - (uint32_t)kernel_start);
+    /* GRUB may call parts of the first 1 MB free, but BIOS data and the VGA
+       buffer live there. */
+    pmm_reserve_region(0, LOW_MEMORY_END);
+    pmm_reserve_region((uint32_t)kernel_start, (uint32_t)kernel_end - (uint32_t)kernel_start);
 
     serial_printf("pmm: %u pages total, %u used\n", total_pages, used_pages);
 }
 
-void* pmm_alloc_page() {
+void* pmm_alloc_page(void) {
     /* Round up so the pages in a last, partly used bitmap word are found. */
-    for (uint32_t i = 0; i < (total_pages + 31) / 32; ++i) {
-        if (0xFFFFFFFF == bitmap[i]) continue; /* used page skip it */
+    uint32_t words = (total_pages + BITS_PER_WORD - 1) / BITS_PER_WORD;
 
-        for (uint32_t bit = 0; bit < 32; ++bit) {
-            uint32_t page = i * 32 + bit;
+    for (uint32_t i = 0; i < words; ++i) {
+        if (bitmap[i] == WORD_ALL_USED) {
+            continue;
+        }
+        for (uint32_t bit = 0; bit < BITS_PER_WORD; ++bit) {
+            uint32_t page = i * BITS_PER_WORD + bit;
 
             if (page < total_pages && !bitmap_test(page)) {
                 bitmap_set(page);
                 used_pages++;
-
                 return (void*)(page * PAGE_SIZE);
             }
         }
     }
 
     printf("PMM: out of memory!\n");
-    return 0;  // null = failed
+    return NULL;
 }
 
 void pmm_free_page(void* addr) {
-    uint32_t page = (uint32_t) addr / PAGE_SIZE;
-
-    if (page < total_pages && bitmap_test(page)) {
-        bitmap_clear(page);
-        used_pages--;
-    }
+    pmm_free_region((uint32_t)addr / PAGE_SIZE, 1);
 }

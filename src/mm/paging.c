@@ -11,7 +11,6 @@
 #include "mm/pmm.h"
 #include "drivers/serial.h"
 
-#define PAGE_SIZE           4096
 #define ENTRIES_PER_TABLE   1024
 #define TABLE_SPAN          (PAGE_SIZE * ENTRIES_PER_TABLE)    /* 4 MB */
 #define IDENTITY_TABLES     (PAGING_IDENTITY_MB * 1024 * 1024 / TABLE_SPAN)

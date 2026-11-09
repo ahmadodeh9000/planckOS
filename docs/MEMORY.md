@@ -19,7 +19,7 @@ bitmap). `pmm_init()`:
 1. Marks **every** page as used. This is the safe default: anything GRUB
    doesn't explicitly call free stays off-limits.
 2. Walks the Multiboot memory map (`mmap_addr` / `mmap_length`, valid when
-   flag bit 6 is set) and clears the bits for every page in a type-1
+   flag bit 6, `MULTIBOOT_FLAG_MMAP`, is set; structures in `arch/multiboot.h`) and clears the bits for every page in a type-1
    ("available") region. Regions above 4 GB are skipped, since we don't use
    PAE.
 3. Reserves the first 1 MB (BIOS data, VGA memory, ROMs) even if GRUB calls
