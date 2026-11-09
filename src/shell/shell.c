@@ -1,7 +1,9 @@
 #include "shell/shell.h"
-#include "lib/strings.h"
+#include "lib/string.h"
 #include "drivers/keyboard.h"
-#include "lib/util.h"
+#include "lib/printf.h"
+#include "drivers/vga.h"
+#include "arch/io.h"
 #include "mm/kmalloc.h"
 #include "fs/fat12.h"
 

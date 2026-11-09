@@ -1,5 +1,5 @@
 #include "arch/syscall.h"
-#include "lib/common.h"
+#include "lib/printf.h"
 #include "mm/kmalloc.h"
 
 /* handling system calls*/

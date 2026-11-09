@@ -1,6 +1,7 @@
 #include "drivers/keyboard.h"
 #include "arch/idt.h"
-#include "lib/strings.h"
+#include "lib/string.h"
+#include "drivers/vga.h"
 
 #define BUF_SIZE    2048
 

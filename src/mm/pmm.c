@@ -1,6 +1,6 @@
 #include "mm/pmm.h"
-#include "lib/util.h"
 #include "drivers/serial.h"
+#include "lib/printf.h"
 
 /* constants for paging*/
 

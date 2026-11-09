@@ -1,5 +1,5 @@
 #include "arch/gdt.h"
-#include "lib/util.h"
+#include "lib/string.h"
 
 #define GDT_ENTRIES 6
 
@@ -27,7 +27,7 @@ void write_tss(uint32_t num, uint16_t ss0, uint32_t esp0) {
     uint32_t limit  = sizeof(tss) - 1;    /* a limit is the last valid offset */
 
     set_gdt_entry(num,base,limit,0xE9,0x0);
-    kmemset(&tss,0,sizeof(tss));
+    memset(&tss,0,sizeof(tss));
     
     tss.ss0     = ss0;
     tss.esp0    = esp0;

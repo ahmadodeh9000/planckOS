@@ -3,7 +3,7 @@
 #include "arch/gdt.h"
 #include "arch/idt.h"
 #include "drivers/keyboard.h"
-#include "lib/strings.h"
+#include "lib/printf.h"
 #include "shell/shell.h"
 #include "mm/pmm.h"
 #include "mm/paging.h"

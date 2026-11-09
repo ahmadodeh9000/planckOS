@@ -1,7 +1,7 @@
 #include "fs/fat12.h"
 #include "drivers/ata.h"
 #include "mm/kmalloc.h"
-#include "lib/util.h"
+#include "lib/printf.h"
 #include "drivers/serial.h"
 
 /* ───────────────────────────────────────────────

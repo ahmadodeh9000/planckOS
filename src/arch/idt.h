@@ -2,7 +2,17 @@
 #define idt_h__
 
 #include "lib/common.h"
-#include "lib/util.h"
+#include "arch/io.h"
+
+/* Register snapshot built by the assembly stubs in idt.s, in stack order. */
+typedef struct {
+    uint32_t gs, fs, es, ds;            /* pushed last by the stub          */
+    uint32_t edi, esi, ebp, esp,
+             ebx, edx, ecx, eax;        /* pusha                            */
+    uint32_t int_no, err_code;          /* pushed by the ISR/IRQ macro      */
+    uint32_t eip, cs, eflags,
+             useresp, ss;               /* pushed by the CPU                */
+} __attribute__((packed)) registers_t;
 
 typedef struct {
     uint16_t low_offset;

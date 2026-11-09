@@ -1,7 +1,7 @@
 #ifndef syscall_h__
 #define syscall_h__
 
-#include "lib/util.h"
+#include "arch/idt.h"
 
 /*          SYSCALLS            */
 #define SYS_PRINT       0

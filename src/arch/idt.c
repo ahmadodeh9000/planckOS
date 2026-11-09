@@ -1,5 +1,6 @@
 #include "arch/idt.h"
-#include "lib/util.h"
+#include "lib/string.h"
+#include "drivers/vga.h"
 #include "arch/syscall.h"
 
 #define IDT_ENTRIES 256
@@ -111,7 +112,7 @@ void idt_init() {
     idtp.limit = (sizeof(idt_entry) * IDT_ENTRIES) - 1;
     idtp.base  = (uint32_t) &idt_entries;
 
-    kmemset(idt_entries,0, sizeof(idt_entries));
+    memset(idt_entries,0, sizeof(idt_entries));
 
     outportb(0x20,0x11);
     outportb(0xA0,0x11);

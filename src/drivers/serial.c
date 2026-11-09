@@ -6,7 +6,7 @@
  * and IRQ handlers.
  */
 #include "drivers/serial.h"
-#include "lib/util.h"
+#include "arch/io.h"
 #include <stdarg.h>
 
 #define COM1_PORT           0x3F8
