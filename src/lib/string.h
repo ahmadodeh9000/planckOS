@@ -18,4 +18,7 @@ void* memset(void* ptr, int value, size_t count);
 void* memcpy(void* dest, const void* src, size_t count);
 int memcmp(const void* a, const void* b, size_t count);
 
+/* Fill 'count' 32-bit words with 'value' (used to fill pixel rows). */
+void* memset32(uint32_t* ptr, uint32_t value, size_t count);
+
 #endif

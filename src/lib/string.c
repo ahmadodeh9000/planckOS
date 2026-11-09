@@ -1,5 +1,9 @@
 /*
  * string.c - string and memory helpers (see string.h).
+ *
+ * memcpy and memset32 use the x86 string instructions (rep movs / rep stos).
+ * They move 4 bytes per step, which matters when copying a 3 MB frame to
+ * the screen.
  */
 #include "lib/string.h"
 
@@ -45,13 +49,21 @@ void* memset(void* ptr, int value, size_t count) {
 }
 
 void* memcpy(void* dest, const void* src, size_t count) {
-    uint8_t* d = dest;
-    const uint8_t* s = src;
+    void* d = dest;
+    const void* s = src;
+    size_t words = count / 4;
+    size_t bytes = count % 4;
 
-    while (count--) {
-        *d++ = *s++;
-    }
+    asm volatile("rep movsl" : "+D"(d), "+S"(s), "+c"(words) :: "memory");
+    asm volatile("rep movsb" : "+D"(d), "+S"(s), "+c"(bytes) :: "memory");
     return dest;
+}
+
+void* memset32(uint32_t* ptr, uint32_t value, size_t count) {
+    void* d = ptr;
+
+    asm volatile("rep stosl" : "+D"(d), "+c"(count) : "a"(value) : "memory");
+    return ptr;
 }
 
 int memcmp(const void* a, const void* b, size_t count) {
