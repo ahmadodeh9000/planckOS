@@ -15,7 +15,6 @@
 #include "drivers/ata.h"
 #include "drivers/serial.h"
 #include "mm/kmalloc.h"
-#include "lib/printf.h"
 #include "lib/string.h"
 
 #define FAT12_FREE              0x000
@@ -26,7 +25,6 @@
 #define NAME_LEN                8
 #define EXT_LEN                 3
 #define NAME_83_LEN             (NAME_LEN + EXT_LEN)
-#define DISPLAY_NAME_MAX        (NAME_LEN + 1 + EXT_LEN + 1)   /* "NAME.EXT\0" */
 
 #define ENTRY_END_OF_DIR        0x00    /* first name byte: no more entries */
 #define ENTRY_DELETED           0xE5    /* first name byte: free slot       */
@@ -72,6 +70,7 @@ static uint8_t  sectors_per_cluster;
 static uint32_t cluster_size;       /* bytes                         */
 static uint32_t total_clusters;
 static uint8_t* fat_buffer;         /* the whole FAT, in RAM         */
+static bool     ready;              /* fat12_init found a volume     */
 
 /* ---- names -------------------------------------------------------- */
 
@@ -307,6 +306,10 @@ void fat12_init(void) {
     ata_read(0, 1, sector);
     fat12_boot_t* b = (fat12_boot_t*)sector;
 
+    if (b->bytes_per_sector != ATA_SECTOR_SIZE || b->sectors_per_cluster == 0) {
+        serial_printf("fat12: sector 0 is not a FAT12 boot sector\n");
+        return;
+    }
     fat_sectors         = b->sectors_per_fat;
     fat_start           = b->reserved_sectors;
     root_start          = fat_start + b->fat_count * fat_sectors;
@@ -324,62 +327,85 @@ void fat12_init(void) {
         ata_read(fat_start + i, 1, (uint16_t*)(fat_buffer + i * ATA_SECTOR_SIZE));
     }
 
+    ready = true;
     serial_printf("fat12: %u clusters of %u bytes\n", total_clusters, cluster_size);
 }
 
-void fat12_list(void) {
+int fat12_list(fat12_file_t* files, int max) {
+    if (!ready) {
+        return 0;
+    }
     fat12_entry_t* dir = root_dir_load();
-    char display[DISPLAY_NAME_MAX];
+    int count = 0;
 
     for (uint32_t i = 0; i < root_entries && dir[i].name[0] != ENTRY_END_OF_DIR; i++) {
-        if (entry_is_file(&dir[i])) {
-            entry_display_name(&dir[i], display);
-            printf("    %s  %d bytes\n", display, dir[i].file_size);
+        if (entry_is_file(&dir[i]) && count < max) {
+            entry_display_name(&dir[i], files[count].name);
+            files[count].size = dir[i].file_size;
+            count++;
         }
     }
     kfree(dir);
+    return count;
 }
 
-uint32_t fat12_read(const char* name, uint8_t* buffer) {
+/* Look up 'name' and return its first cluster and size. */
+static fat12_status fat12_find(const char* name, uint32_t* cluster, uint32_t* size) {
+    if (!ready) {
+        return FAT12_NO_DISK;
+    }
     char name_83[NAME_83_LEN];
     name_to_83(name, name_83);
 
     fat12_entry_t* dir = root_dir_load();
     int index = root_dir_find(dir, name_83);
-    uint32_t cluster = index >= 0 ? dir[index].start_cluster : 0;
-    uint32_t size    = index >= 0 ? dir[index].file_size : 0;
-    kfree(dir);
-
-    if (!cluster) {
-        return 0;
+    if (index >= 0) {
+        *cluster = dir[index].start_cluster;
+        *size = dir[index].file_size;
     }
-    read_chain(cluster, size, buffer);
-    return size;
+    kfree(dir);
+    return index >= 0 ? FAT12_OK : FAT12_NOT_FOUND;
 }
 
-int fat12_write(const char* name, uint8_t* data, uint32_t size) {
+fat12_status fat12_read(const char* name, uint8_t* buffer, uint32_t capacity, uint32_t* bytes_read) {
+    uint32_t cluster;
+    uint32_t size;
+    fat12_status status = fat12_find(name, &cluster, &size);
+
+    *bytes_read = 0;
+    if (status != FAT12_OK) {
+        return status;
+    }
+    *bytes_read = size < capacity ? size : capacity;
+    read_chain(cluster, *bytes_read, buffer);
+    return FAT12_OK;
+}
+
+/* Find the entry to (over)write 'name_83' into, freeing any old data.
+   Returns the entry index or -1 if the directory is full. */
+static int fat12_claim_entry(fat12_entry_t* dir, const char* name_83) {
+    int slot = root_dir_find(dir, name_83);
+    if (slot >= 0) {
+        free_chain(dir[slot].start_cluster);    /* overwrite: drop old data */
+        return slot;
+    }
+    return root_dir_free_slot(dir);
+}
+
+fat12_status fat12_write(const char* name, const uint8_t* data, uint32_t size) {
+    if (!ready) {
+        return FAT12_NO_DISK;
+    }
     char name_83[NAME_83_LEN];
     name_to_83(name, name_83);
 
     fat12_entry_t* dir = root_dir_load();
-    int slot = root_dir_find(dir, name_83);
-    if (slot >= 0) {
-        free_chain(dir[slot].start_cluster);    /* overwrite: drop old data */
-    } else {
-        slot = root_dir_free_slot(dir);
-    }
-    if (slot < 0) {
-        printf("root directory full\n");
-        kfree(dir);
-        return 0;
-    }
-
+    int slot = fat12_claim_entry(dir, name_83);
     uint32_t clusters = size ? (size + cluster_size - 1) / cluster_size : 1;
-    uint32_t first = alloc_chain(clusters);
+    uint32_t first = slot >= 0 ? alloc_chain(clusters) : 0;
     if (!first) {
-        printf("disk full\n");
         kfree(dir);
-        return 0;
+        return slot < 0 ? FAT12_DIR_FULL : FAT12_DISK_FULL;
     }
     write_chain(first, data, size);
 
@@ -390,28 +416,34 @@ int fat12_write(const char* name, uint8_t* data, uint32_t size) {
     dir[slot].file_size     = size;
     root_dir_save(dir);
     kfree(dir);
-
-    printf("Wrote %s (%d bytes)\n", name, size);
-    return 1;
+    return FAT12_OK;
 }
 
-int fat12_delete(const char* name) {
+fat12_status fat12_delete(const char* name) {
+    if (!ready) {
+        return FAT12_NO_DISK;
+    }
     char name_83[NAME_83_LEN];
     name_to_83(name, name_83);
 
     fat12_entry_t* dir = root_dir_load();
     int index = root_dir_find(dir, name_83);
-    if (index < 0) {
-        kfree(dir);
-        printf("FAT12: file not found\n");
-        return 0;
+    if (index >= 0) {
+        free_chain(dir[index].start_cluster);
+        dir[index].name[0] = ENTRY_DELETED;
+        root_dir_save_sector(dir, index * sizeof(fat12_entry_t) / ATA_SECTOR_SIZE);
     }
-
-    free_chain(dir[index].start_cluster);
-    dir[index].name[0] = ENTRY_DELETED;
-    root_dir_save_sector(dir, index * sizeof(fat12_entry_t) / ATA_SECTOR_SIZE);
     kfree(dir);
+    return index >= 0 ? FAT12_OK : FAT12_NOT_FOUND;
+}
 
-    printf("FAT12: deleted %s\n", name);
-    return 1;
+const char* fat12_status_message(fat12_status status) {
+    switch (status) {
+        case FAT12_OK:        return "ok";
+        case FAT12_NOT_FOUND: return "file not found";
+        case FAT12_DIR_FULL:  return "root directory full";
+        case FAT12_DISK_FULL: return "disk full";
+        case FAT12_NO_DISK:   return "no disk";
+    }
+    return "unknown error";
 }

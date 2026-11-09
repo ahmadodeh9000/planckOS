@@ -14,6 +14,7 @@
 #include "lib/string.h"
 
 #define CAT_BUF_SIZE        (512 * 16)  /* largest file 'cat' can show: 8 KB */
+#define LS_MAX_FILES        512
 #define MAX_FILENAME_LEN    12          /* "NAME.EXT" */
 #define SHELL_LINE_MAX      256
 
@@ -71,7 +72,16 @@ static void cmd_clear(const char* args) {
 
 static void cmd_ls(const char* args) {
     (void)args;
-    fat12_list();
+    fat12_file_t* files = kmalloc(LS_MAX_FILES * sizeof(fat12_file_t));
+    if (!files) {
+        print("ls: out of memory\n");
+        return;
+    }
+    int count = fat12_list(files, LS_MAX_FILES);
+    for (int i = 0; i < count; i++) {
+        printf("    %s  %d bytes\n", files[i].name, files[i].size);
+    }
+    kfree(files);
 }
 
 static void cmd_echo(const char* args) {
@@ -83,7 +93,12 @@ static void cmd_del(const char* args) {
         print("Usage: del <filename>\n");
         return;
     }
-    fat12_delete(args);
+    fat12_status status = fat12_delete(args);
+    if (status == FAT12_OK) {
+        printf("FAT12: deleted %s\n", args);
+    } else {
+        printf("FAT12: %s\n", fat12_status_message(status));
+    }
 }
 
 static void cmd_cat(const char* args) {
@@ -99,15 +114,13 @@ static void cmd_cat(const char* args) {
         return;
     }
 
-    uint32_t size = fat12_read(args, buf);
-    if (!size) {
-        printf("cat: file not found: %s\n", args);
-    } else {
-        if (size > CAT_BUF_SIZE) {
-            size = CAT_BUF_SIZE;
-        }
+    uint32_t size;
+    fat12_status status = fat12_read(args, buf, CAT_BUF_SIZE, &size);
+    if (status == FAT12_OK) {
         buf[size] = '\0';
         printf("%s\n", (char*)buf);
+    } else {
+        printf("cat: %s: %s\n", fat12_status_message(status), args);
     }
     kfree(buf);
 }
@@ -137,7 +150,13 @@ static void cmd_write(const char* args) {
         print("write: no content provided\n");
         return;
     }
-    fat12_write(name, (uint8_t*)content, strlen(content));
+    uint32_t size = strlen(content);
+    fat12_status status = fat12_write(name, (const uint8_t*)content, size);
+    if (status == FAT12_OK) {
+        printf("Wrote %s (%d bytes)\n", name, size);
+    } else {
+        printf("write: %s\n", fat12_status_message(status));
+    }
 }
 
 static void cmd_quit(const char* args) {

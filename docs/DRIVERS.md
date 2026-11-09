@@ -233,20 +233,24 @@ out where each area starts. It also loads the whole first FAT into RAM.
   chain, writes the data cluster by cluster (zero-padding the last one),
   then fills in the directory entry and saves the directory.
 
-**Key functions.**
+**Key functions.** Nothing in `fat12.c` prints. Every call returns a
+`fat12_status` (`FAT12_OK`, `FAT12_NOT_FOUND`, `FAT12_DIR_FULL`,
+`FAT12_DISK_FULL`, `FAT12_NO_DISK`), and the caller decides what to show,
+for example with `fat12_status_message()`. That lets the text shell and
+the GUI apps share the driver.
 
 | Function | Purpose |
 |----------|---------|
-| `fat12_init()` | Read the BPB and the FAT. |
-| `fat12_list()` | Print each file and its size. |
-| `fat12_read(name, buf)` | Read a file into `buf`; returns its size, or 0 if not found. |
+| `fat12_init()` | Read and sanity-check the BPB, then load the FAT. Without a valid volume every other call returns `FAT12_NO_DISK`. |
+| `fat12_list(files, max)` | Fill an array of `{ name, size }` with the root directory's files; returns the count. |
+| `fat12_read(name, buf, capacity, &bytes_read)` | Read up to `capacity` bytes. |
 | `fat12_write(name, data, size)` | Create or overwrite. |
 | `fat12_delete(name)` | Free the chain and mark the entry `0xE5`. |
+| `fat12_status_message(status)` | A short English description. |
 
 **Extending it.** Subdirectories are directory entries with attribute `0x10`
 whose cluster chain holds more 32-byte entries. Supporting them means
-running `root_dir_find` over a chain instead of the fixed root area. A
-`fat12_size(name)` would let callers size buffers exactly.
+running `root_dir_find` over a chain instead of the fixed root area.
 
 **Known limits.** Root directory only. Only the first FAT copy is updated.
-No timestamps. `fat12_read` trusts the caller's buffer to be large enough.
+No timestamps.
