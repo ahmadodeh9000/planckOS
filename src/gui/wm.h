@@ -42,6 +42,9 @@ void wm_init(int desktop_width, int desktop_height);
    focused, on top, and dirty. Returns NULL if out of memory/slots. */
 window_t* window_create(const char* title, int width, int height);
 
+/* Change the text in the title bar (and on the taskbar). */
+void window_set_title(window_t* win, const char* title);
+
 /* Call on_close, free the window and remove it from the screen. */
 void window_close(window_t* win);
 

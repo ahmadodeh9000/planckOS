@@ -155,6 +155,10 @@ window_t* window_create(const char* title, int width, int height) {
     return win;
 }
 
+void window_set_title(window_t* win, const char* title) {
+    copy_title(win->title, title);
+}
+
 void window_close(window_t* win) {
     int index = window_index(win);
     if (index < 0) {
