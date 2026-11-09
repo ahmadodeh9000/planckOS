@@ -3,8 +3,9 @@
 
 #include "lib/common.h"
 
-extern uint32_t kernel_start;
-extern uint32_t kernel_end;
+/* Linker symbols from link.ld. Only their addresses mean anything. */
+extern uint8_t kernel_start[];
+extern uint8_t kernel_end[];
 
 // The full multiboot info structure GRUB gives us
 typedef struct {

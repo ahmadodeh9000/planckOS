@@ -86,3 +86,44 @@ translation from its TLB.
 **Known limits.** One address space for everything. New page tables must
 come from identity-mapped memory (the PMM hands out low pages first, so this
 holds unless RAM below 64 MB runs out). No unmapping yet.
+
+## Kernel heap — `mm/kmalloc.c`
+
+**What it does.** `kmalloc(size)` and `kfree(ptr)` for kernel data structures
+and buffers.
+
+**How it works.** The heap is one 16 MB block starting at `kernel_end`.
+`heap_init()` checks that the block fits inside the identity-mapped 64 MB,
+then calls `pmm_reserve_region()` on it. From then on the PMM and the heap
+never hand out the same memory. The block is carved into a singly linked
+list of chunks, each preceded by a `block_header` (`size`, `free`, `next`):
+
+- `kmalloc` rounds the size up to 8 bytes and walks the list for the first
+  free chunk that's big enough (first fit). If the leftover space is big
+  enough for another header plus 8 bytes, it splits the chunk.
+- `kfree` marks the chunk free and merges it with any free chunks that
+  directly follow it.
+
+**Key functions.**
+
+| Function | Purpose |
+|----------|---------|
+| `heap_init()` | Reserve the heap in the PMM and make it one free chunk. |
+| `kmalloc(size)` | Allocate; returns `NULL` when nothing fits. |
+| `kfree(ptr)` | Free; `kfree(NULL)` is allowed. |
+
+**Extending it.** Merging with the *previous* chunk too (a doubly linked
+list) would reduce fragmentation. A `krealloc` would help growing buffers.
+
+**Known limits.** Fixed 16 MB. Linear first-fit search. No protection
+against double frees or overruns.
+
+## Physical memory map (QEMU, 128 MB)
+
+| Range | Owner |
+|-------|-------|
+| `0x00000000 - 0x000FFFFF` | BIOS, VGA text buffer (`0xB8000`), ROMs. Reserved. |
+| `0x00100000 - kernel_end` | Kernel image: code, data, bss (PMM bitmap, page tables, boot stack). |
+| `kernel_end - +16 MB` | Kernel heap. Reserved in the PMM. |
+| `... - 64 MB` | Free pages for `pmm_alloc_page()`. Identity-mapped. |
+| `64 MB - end of RAM` | Free pages, not mapped yet. |

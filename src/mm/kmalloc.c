@@ -1,18 +1,28 @@
 #include "mm/kmalloc.h"
 #include "lib/util.h"
 #include "drivers/serial.h"
-
-extern uint32_t kernel_end;
+#include "mm/pmm.h"
+#include "mm/paging.h"
 
 static block_header* heap_start = NULL;
-#define HEAP_SIZE (4 * 1024 * 1024) /* 4 MB heap */
+
+/* Big enough for a 1024x768x32 back buffer (3 MB) plus window buffers. */
+#define HEAP_SIZE (16 * 1024 * 1024)
 
 void heap_init() {
+    /* The heap sits right after the kernel. It is told to the PMM so that
+       pmm_alloc_page() never hands out a page the heap already owns. */
+    uint32_t start = (uint32_t)kernel_end;
+    uint32_t end   = start + HEAP_SIZE;
 
-    serial_printf("heap: %x - %x\n", (uint32_t)&kernel_end, (uint32_t)&kernel_end + HEAP_SIZE);
+    if (end > PAGING_IDENTITY_MB * 1024 * 1024) {
+        serial_printf("heap: does not fit in identity-mapped memory\n");
+        for (;;) asm volatile("cli; hlt");
+    }
+    pmm_reserve_region(start, HEAP_SIZE);
+    serial_printf("heap: %x - %x (%u KB)\n", start, end, HEAP_SIZE / 1024);
 
-
-    heap_start       = (block_header*) &kernel_end;
+    heap_start       = (block_header*) start;
     heap_start->size = HEAP_SIZE - sizeof(block_header);
     heap_start->free = 1;
     heap_start->next = NULL;

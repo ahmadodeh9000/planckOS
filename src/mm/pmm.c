@@ -95,8 +95,8 @@ void pmm_init(multiboot_info_t *mbi) {
     pmm_reserve_region(0, low_pages * PAGE_SIZE);
 
     /* The kernel image itself must never be handed out as a free page. */
-    pmm_reserve_region((uint32_t)&kernel_start,
-                       (uint32_t)&kernel_end - (uint32_t)&kernel_start);
+    pmm_reserve_region((uint32_t)kernel_start,
+                       (uint32_t)kernel_end - (uint32_t)kernel_start);
 
     serial_printf("pmm: %u pages total, %u used\n", total_pages, used_pages);
 }
