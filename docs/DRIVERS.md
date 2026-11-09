@@ -165,8 +165,10 @@ foreground index.
 A `console_t` is anything that can show a character (`put_char(con, c,
 color)`) and clear itself (`clear(con)`), plus a `data` pointer for its own
 state. The helpers on top (`console_print`, `console_printf` with
-`%s %c %d %u %x`, `console_print_rainbow`) only ever call those two
-functions. That's how the shell runs unchanged on the VGA screen and inside
+`%s %c %d %u %x`, `console_print_color`, `console_print_rainbow`) only ever
+call those two functions. Colors are named in `enum console_color`
+(`CONSOLE_BLUE`, `CONSOLE_LIGHT_CYAN`, ...), in the standard VGA palette
+order. That's how the shell runs unchanged on the VGA screen and inside
 Terminal windows: each provides its own sink.
 
 To make a new sink, fill in a `console_t` with your two functions and point

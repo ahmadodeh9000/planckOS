@@ -7,6 +7,7 @@
  * console_t.
  */
 #include "shell/shell.h"
+#include "shell/logo.h"
 #include "gui/event.h"
 #include "fs/fat12.h"
 #include "mm/kmalloc.h"
@@ -242,7 +243,10 @@ shell_t* shell_create(console_t* con) {
     }
     sh->con = con;
     sh->length = 0;
-    cmd_clear(sh, "");
+    console_clear(con);
+    logo_print(con);
+    console_putc(con, '\n');
+    shell_banner(sh);
     shell_prompt(sh);
     return sh;
 }

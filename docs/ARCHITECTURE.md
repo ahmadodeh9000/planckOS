@@ -71,7 +71,7 @@ src/
   gfx/          surfaces (pixel drawing), framebuffer, font
   gui/          event queue, main loop, window manager, taskbar, menu,
                 widgets, cursor, theme
-  shell/        the command shell (text mode and Terminal app)
+  shell/        the command shell (text mode and Terminal app) and its logo
   apps/         terminal, files, notepad, about, and the app list
 docs/           these pages
 ```

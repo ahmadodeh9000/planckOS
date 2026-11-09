@@ -13,8 +13,14 @@
 #include "lib/common.h"
 
 /* Colors are indexes into the standard 16-color VGA palette. */
+enum console_color {
+    CONSOLE_BLACK, CONSOLE_BLUE, CONSOLE_GREEN, CONSOLE_CYAN,
+    CONSOLE_RED, CONSOLE_MAGENTA, CONSOLE_BROWN, CONSOLE_LIGHT_GREY,
+    CONSOLE_DARK_GREY, CONSOLE_LIGHT_BLUE, CONSOLE_LIGHT_GREEN, CONSOLE_LIGHT_CYAN,
+    CONSOLE_LIGHT_RED, CONSOLE_LIGHT_MAGENTA, CONSOLE_YELLOW, CONSOLE_WHITE,
+};
 #define CONSOLE_COLOR_COUNT     16
-#define CONSOLE_COLOR_DEFAULT   15      /* white */
+#define CONSOLE_COLOR_DEFAULT   CONSOLE_WHITE
 
 typedef struct console console_t;
 
@@ -29,6 +35,9 @@ struct console {
 void console_putc(console_t* con, char c);
 void console_print(console_t* con, const char* text);
 void console_clear(console_t* con);
+
+/* Print 'text' in one of the console_color colors. */
+void console_print_color(console_t* con, const char* text, uint8_t color);
 
 /* Each character gets the next color of the rainbow. */
 void console_print_rainbow(console_t* con, const char* text);

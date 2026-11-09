@@ -52,6 +52,16 @@ the same as in text mode.
 Each Terminal window has its own `shell_t`, so several can run side by
 side.
 
+**The logo.** When a shell starts (a new Terminal window, or the text-mode
+shell at boot), `shell_create` prints the planckOS logo, an infinity sign
+wearing a fedora, before the banner. `clear` doesn't print it again. The
+art lives in `shell/logo.c` as a table of `{ text, color }` rows, one per
+line, so you can edit the picture or recolor a row right there. The rows
+are centered on each other, and `logo_print()` adds the left margin that
+centers the 50-column logo on an 80-column screen. With the logo, banner
+and prompt, a new Terminal fills its 24 rows exactly. If you make the logo
+taller, the top will scroll off.
+
 **Extending it.** New shell commands go in the `commands` table in
 `shell/shell.c`: write `cmd_name(shell_t* sh, const char* args)` that
 prints with `console_printf(sh->con, ...)`, and add a row. It then works in

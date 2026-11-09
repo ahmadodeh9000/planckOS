@@ -24,6 +24,12 @@ void console_clear(console_t* con) {
     con->clear(con);
 }
 
+void console_print_color(console_t* con, const char* text, uint8_t color) {
+    while (*text) {
+        con->put_char(con, *text++, color);
+    }
+}
+
 void console_print_rainbow(console_t* con, const char* text) {
     for (int i = 0; text[i]; i++) {
         con->put_char(con, text[i], i % RAINBOW_COLORS + 1);
