@@ -10,18 +10,86 @@ loop never returns:
 
 ```
 for (;;) {
-    event_wait(&event);          // sleep (hlt) until input arrives
-    apply it, then every other queued event
-    redraw into the back buffer
-    fb_present();                // show the new frame
+    event_wait(&event);                 // sleep (hlt) until input arrives
+    changed = dispatch(event);          // and every other queued event
+    if (changed) {
+        compose();                      // desktop, windows, cursor
+        fb_present();                   // show the new frame
+    }
 }
 ```
 
 Taking all queued events before drawing means a fast mouse that queued 20
-moves causes one redraw, not 20.
+moves causes one redraw, not 20. A frame is composed back to front: the
+desktop color, then every window from bottom to top (`wm_draw`), then the
+mouse cursor.
 
-For now the screen is a placeholder that shows the live pointer position,
-held buttons and the last key. The window manager replaces it.
+## Window manager — `gui/wm.c`
+
+**What it does.** Keeps the open windows in z-order, draws their frames,
+and handles focus, raising, dragging by the title bar and the close button.
+
+**A window** (`window_t` in `wm.h`) has:
+
+| Field | Meaning |
+|-------|---------|
+| `title` | Shown in the title bar and on the taskbar. |
+| `x`, `y` | Top-left of the frame on screen. |
+| `surface` | The content pixels. Its width/height is the content size. |
+| `dirty` | The content needs repainting. Set it with `window_invalidate()`. |
+| `data` | The app's own state, which the app allocates and frees. |
+| `on_paint(win)` | Draw the content into `win->surface`. It starts cleared to the window background. |
+| `on_key(win, key)` | A key was typed while this window had focus. |
+| `on_mouse(win, e)` | Press/release in the content, and moves while the button is held. `e->x/y` are relative to the content's top-left. |
+| `on_close(win)` | The window is closing: free `win->data`. |
+
+All callbacks are optional.
+
+**Frame layout.**
+
+```
+(x, y) +-----------------------------------+
+       | title bar (22 px)            [x]  |
+       +-----------------------------------+
+       | content = win->surface            |
+       +-----------------------------------+   1 px border all round
+```
+
+**How it works.**
+
+- *Z-order.* `windows[]` runs bottom to top. The last entry is on top and
+  has keyboard focus. `window_raise()` moves a window to the end.
+- *Own buffers.* Each window paints into its own surface. `wm_draw()` calls
+  `on_paint` only for dirty windows, then copies every buffer onto the
+  screen. Moving a window or the mouse never makes an app repaint, which
+  is how "redraw only on change" works at the app level.
+- *Mouse.* A left press raises the topmost window under the pointer. Then:
+  on the close button it closes the window; on the title bar it starts a
+  drag (remembering where in the frame you grabbed it); in the content it
+  goes to `on_mouse`, and that window "owns" the mouse until the button is
+  released, so drags inside an app keep working when the pointer leaves it.
+  While dragging, the window follows the pointer but is clamped so its title
+  bar stays reachable.
+- *Keys* go to the focused window's `on_key`.
+- New windows are placed in a cascade (each 30 px further down and right).
+
+**Key functions.**
+
+| Function | Purpose |
+|----------|---------|
+| `window_create(title, w, h)` | Open a window with a `w x h` content area. Fill in the callbacks afterwards. |
+| `window_close(win)` | Call `on_close`, free it, remove it. Safe to call from the window's own callbacks. |
+| `window_raise(win)` | Bring to front and focus. |
+| `window_invalidate(win)` | Repaint the content on the next frame. |
+| `wm_handle_event(e)` | Route an input event; returns whether the screen changed. |
+| `wm_draw(screen)` | Paint dirty windows and draw all of them. |
+
+**Extending it.** Minimizing would mean a `hidden` flag that `wm_draw` and
+`window_at_point` skip, with the taskbar button un-hiding it. Resizing
+would reallocate `win->surface` and mark it dirty.
+
+**Known limits.** At most 16 windows. Fixed size. No minimize/maximize.
+The whole screen is recomposed whenever anything changes.
 
 ## Mouse cursor — `gui/cursor.c`
 

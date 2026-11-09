@@ -1,108 +1,60 @@
 /*
- * gui.c - the GUI main loop.
+ * gui.c - the GUI main loop and screen composition.
  *
- * The loop sleeps until an input event arrives, applies every queued
- * event, and redraws only if something changed. Drawing happens here, in
- * normal kernel context, never inside an interrupt handler.
+ *   event -> dispatch -> compose -> present -> sleep (hlt)
  *
- * For now the screen is a placeholder that shows the live input state; the
- * window manager replaces it.
+ * The loop sleeps until an input event arrives, hands every queued event
+ * to the window manager, and redraws only if something changed. A frame is
+ * composed back to front: desktop, windows (bottom to top), mouse cursor.
+ * Drawing happens here, in normal kernel context, never inside an
+ * interrupt handler.
  */
 #include "gui/gui.h"
 #include "gui/event.h"
 #include "gui/cursor.h"
+#include "gui/theme.h"
+#include "gui/wm.h"
+#include "apps/demo.h"
 #include "gfx/fb.h"
-#include "gfx/font.h"
-#include "lib/string.h"
 
-#define COLOR_DESKTOP   RGB(0x20, 0x4A, 0x87)
-#define COLOR_PANEL     RGB(0xEE, 0xEE, 0xEC)
-#define COLOR_TITLE     RGB(0x34, 0x65, 0xA4)
-#define COLOR_TEXT      RGB(0x00, 0x00, 0x00)
-#define COLOR_WHITE     RGB(0xFF, 0xFF, 0xFF)
-#define LINE_HEIGHT     FONT_HEIGHT
-#define LABEL_MAX       64
-#define NUMBER_MAX      12
+static int mouse_x;
+static int mouse_y;
 
-typedef struct {
-    int mouse_x, mouse_y;
-    uint8_t buttons;
-    char last_key;
-} input_state;
-
-static input_state state;
-
-static void gui_apply_event(const event_t* e) {
-    switch (e->type) {
-        case EVENT_KEY:
-            state.last_key = e->key;
-            break;
-        case EVENT_MOUSE_MOVE:
-            state.mouse_x = e->x;
-            state.mouse_y = e->y;
-            break;
-        case EVENT_MOUSE_DOWN:
-            state.buttons |= e->button;
-            break;
-        case EVENT_MOUSE_UP:
-            state.buttons &= ~e->button;
-            break;
+static bool gui_dispatch(const event_t* e) {
+    if (e->type != EVENT_KEY) {
+        mouse_x = e->x;
+        mouse_y = e->y;
     }
+    return wm_handle_event(e);
 }
 
-/* "Mouse: 512, 384  buttons: L - -" */
-static void format_mouse_line(char* out) {
-    char number[NUMBER_MAX];
-
-    strcpy(out, "Mouse: ");
-    strcat(out, utoa(state.mouse_x, number, 10));
-    strcat(out, ", ");
-    strcat(out, utoa(state.mouse_y, number, 10));
-    strcat(out, "  buttons: ");
-    strcat(out, (state.buttons & MOUSE_BUTTON_LEFT) ? "L " : "- ");
-    strcat(out, (state.buttons & MOUSE_BUTTON_MIDDLE) ? "M " : "- ");
-    strcat(out, (state.buttons & MOUSE_BUTTON_RIGHT) ? "R" : "-");
-}
-
-static void gui_draw(surface_t* screen) {
-    int w = screen->width;
-    int h = screen->height;
-    int x = w / 4 + FONT_WIDTH;
-    int y = h / 4 + 4;
-    char line[LABEL_MAX];
-
-    surface_fill_rect(screen, 0, 0, w, h, COLOR_DESKTOP);
-    surface_fill_rect(screen, w / 4, h / 4, w / 2, h / 2, COLOR_PANEL);
-    surface_fill_rect(screen, w / 4, h / 4, w / 2, LINE_HEIGHT + 8, COLOR_TITLE);
-    font_draw_text(screen, x, y, OS_NAME " " OS_VERSION " - kernel " KERNEL_NAME, COLOR_WHITE);
-
-    format_mouse_line(line);
-    font_draw_text(screen, x, y + 2 * LINE_HEIGHT, line, COLOR_TEXT);
-
-    strcpy(line, "Last key: ");
-    line[strlen(line) + 1] = '\0';
-    line[strlen(line)] = state.last_key ? state.last_key : '-';
-    font_draw_text(screen, x, y + 3 * LINE_HEIGHT, line, COLOR_TEXT);
-
-    cursor_draw(screen, state.mouse_x, state.mouse_y);
+static void gui_compose(surface_t* screen) {
+    surface_fill_rect(screen, 0, 0, screen->width, screen->height, THEME_DESKTOP);
+    wm_draw(screen);
+    cursor_draw(screen, mouse_x, mouse_y);
 }
 
 void gui_main_loop(void) {
     surface_t* screen = fb_back_buffer();
     event_t event;
 
-    state.mouse_x = screen->width / 2;
-    state.mouse_y = screen->height / 2;
-    gui_draw(screen);
-    fb_present();
+    mouse_x = screen->width / 2;
+    mouse_y = screen->height / 2;
+    wm_init(screen->width, screen->height - THEME_TASKBAR_HEIGHT);
+    demo_open();
+    demo_open();
 
+    gui_compose(screen);
+    fb_present();
     for (;;) {
         event_wait(&event);
-        gui_apply_event(&event);
+        bool changed = gui_dispatch(&event);
         while (event_poll(&event)) {
-            gui_apply_event(&event);
+            changed |= gui_dispatch(&event);
         }
-        gui_draw(screen);
-        fb_present();
+        if (changed) {
+            gui_compose(screen);
+            fb_present();
+        }
     }
 }

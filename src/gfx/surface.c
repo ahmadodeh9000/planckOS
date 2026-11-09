@@ -6,10 +6,6 @@
 
 #define BYTES_PER_PIXEL 4
 
-typedef struct {
-    int x, y, w, h;
-} rect_t;
-
 /*
  * Shrink 'r' to the part inside a width x height area. 'src_x'/'src_y'
  * move by whatever is cut off the left/top, so a blit stays lined up with
@@ -52,6 +48,13 @@ void surface_fill_rect(surface_t* s, int x, int y, int w, int h, uint32_t color)
     for (int row = 0; row < r.h; row++) {
         memset32(&s->pixels[(r.y + row) * s->width + r.x], color, r.w);
     }
+}
+
+void surface_draw_rect(surface_t* s, int x, int y, int w, int h, uint32_t color) {
+    surface_fill_rect(s, x, y, w, 1, color);
+    surface_fill_rect(s, x, y + h - 1, w, 1, color);
+    surface_fill_rect(s, x, y, 1, h, color);
+    surface_fill_rect(s, x + w - 1, y, 1, h, color);
 }
 
 void surface_blit(surface_t* dst, int x, int y, const surface_t* src) {
