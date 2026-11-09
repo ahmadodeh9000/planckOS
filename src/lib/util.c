@@ -86,14 +86,15 @@ void printf_rainbow(const char* fmt, ...) {
 }
 
 
+/* Fill 'count' bytes at 'ptr' with the low byte of 'value', like memset. */
 void* kmemset(void* ptr, int32_t value, uint32_t count) {
-    uint32_t* p = ptr;
-    
-    while (--count) {
-        *p = (uint32_t) value;
+    uint8_t* p = ptr;
+
+    while (count--) {
+        *p++ = (uint8_t)value;
     }
 
-    return p;
+    return ptr;
 }
 
 void outportb(uint16_t port, uint8_t value) {
