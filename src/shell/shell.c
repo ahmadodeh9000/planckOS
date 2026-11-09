@@ -175,9 +175,9 @@ static void cmd_del(shell_t* sh, const char* args) {
     }
     fat12_status status = fat12_delete(args);
     if (status == FAT12_OK) {
-        console_printf(sh->con, "FAT12: deleted %s\n", args);
+        console_printf(sh->con, "deleted %s\n", args);
     } else {
-        console_printf(sh->con, "FAT12: %s\n", fat12_status_message(status));
+        console_printf(sh->con, "%s\n", fat12_status_message(status));
     }
 }
 
