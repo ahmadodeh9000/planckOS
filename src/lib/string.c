@@ -53,3 +53,15 @@ void* memcpy(void* dest, const void* src, size_t count) {
     }
     return dest;
 }
+
+int memcmp(const void* a, const void* b, size_t count) {
+    const uint8_t* p = a;
+    const uint8_t* q = b;
+
+    for (size_t i = 0; i < count; i++) {
+        if (p[i] != q[i]) {
+            return p[i] - q[i];
+        }
+    }
+    return 0;
+}

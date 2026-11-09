@@ -1,430 +1,417 @@
+/*
+ * fat12.c - FAT12 driver on top of ata.c.
+ *
+ * Disk layout (all sizes come from the boot sector, the BPB):
+ *
+ *   | boot sector | FAT copies | root directory | data clusters 2, 3, ... |
+ *
+ * The whole FAT is kept in RAM (fat_buffer) and every change to it is
+ * written straight back to the first FAT copy. The root directory is read
+ * from disk for each operation. A file is a chain of clusters: the FAT
+ * entry of each cluster holds the number of the next one, or an
+ * end-of-chain marker.
+ */
 #include "fs/fat12.h"
 #include "drivers/ata.h"
+#include "drivers/serial.h"
 #include "mm/kmalloc.h"
 #include "lib/printf.h"
-#include "drivers/serial.h"
+#include "lib/string.h"
 
-/* ───────────────────────────────────────────────
-   All layout values are derived from the BPB
-   at init time and stored here.
-─────────────────────────────────────────────── */
-static uint32_t fat_start;          /* LBA of first FAT sector          */
-static uint32_t root_start;         /* LBA of first root-dir sector     */
-static uint32_t root_size;          /* root dir size in sectors         */
-static uint32_t data_start;         /* LBA of cluster 2                 */
+#define FAT12_FREE              0x000
+#define FAT12_END_OF_CHAIN      0xFFF   /* what we write to end a chain   */
+#define FAT12_CHAIN_END_MIN     0xFF8   /* any value >= this ends a chain */
+#define FAT12_FIRST_CLUSTER     2       /* clusters 0 and 1 are reserved  */
+
+#define NAME_LEN                8
+#define EXT_LEN                 3
+#define NAME_83_LEN             (NAME_LEN + EXT_LEN)
+#define DISPLAY_NAME_MAX        (NAME_LEN + 1 + EXT_LEN + 1)   /* "NAME.EXT\0" */
+
+#define ENTRY_END_OF_DIR        0x00    /* first name byte: no more entries */
+#define ENTRY_DELETED           0xE5    /* first name byte: free slot       */
+#define ATTR_LONG_NAME          0x0F
+#define ATTR_ARCHIVE            0x20
+
+typedef struct {
+    uint8_t  jump[3];
+    uint8_t  oem[8];
+    uint16_t bytes_per_sector;
+    uint8_t  sectors_per_cluster;
+    uint16_t reserved_sectors;      /* sectors before the first FAT */
+    uint8_t  fat_count;
+    uint16_t root_entry_count;
+    uint16_t total_sectors;         /* 0 if the volume needs total_sectors_32 */
+    uint8_t  media_type;
+    uint16_t sectors_per_fat;
+    uint16_t sectors_per_track;
+    uint16_t head_count;
+    uint32_t hidden_sectors;
+    uint32_t total_sectors_32;
+} __attribute__((packed)) fat12_boot_t;
+
+typedef struct {
+    uint8_t  name[NAME_LEN];
+    uint8_t  ext[EXT_LEN];
+    uint8_t  attributes;
+    uint8_t  reserved[10];
+    uint16_t time;
+    uint16_t date;
+    uint16_t start_cluster;         /* FAT12 has no high cluster word */
+    uint32_t file_size;
+} __attribute__((packed)) fat12_entry_t;
+
+/* Layout, filled in by fat12_init() from the boot sector */
+static uint32_t fat_start;          /* LBA of the first FAT          */
+static uint32_t fat_sectors;
+static uint32_t root_start;         /* LBA of the root directory     */
+static uint32_t root_sectors;
+static uint32_t root_entries;
+static uint32_t data_start;         /* LBA of cluster 2              */
 static uint8_t  sectors_per_cluster;
-static uint32_t cluster_size;       /* bytes per cluster                */
-static uint32_t total_clusters;     /* usable data clusters (2..N)      */
+static uint32_t cluster_size;       /* bytes                         */
+static uint32_t total_clusters;
+static uint8_t* fat_buffer;         /* the whole FAT, in RAM         */
 
-static uint8_t *fat_buffer;         /* in-RAM copy of the entire FAT    */
-static uint32_t fat_sectors;        /* how many sectors the FAT occupies*/
-
-/* ───────────────────────────────────────────────
-   Helpers
-─────────────────────────────────────────────── */
+/* ---- names -------------------------------------------------------- */
 
 static char to_upper(char c) {
-    if (c >= 'a' && c <= 'z') return (char)(c - 32);
+    if (c >= 'a' && c <= 'z') {
+        return c - 'a' + 'A';
+    }
     return c;
 }
 
-/* Convert a user-visible name ("FOO.TXT") to an 11-byte 8.3 field.
-   The output is space-padded, not NUL-terminated. */
-static void to_83(const char *in, char *out) {
-    int i;
-    for (i = 0; i < 11; i++) out[i] = ' ';
-
+/* "foo.txt" -> "FOO     TXT" (11 bytes, space padded, no '\0'). */
+static void name_to_83(const char* in, char* out) {
     int dot = -1;
-    for (i = 0; in[i]; i++)
-        if (in[i] == '.') { dot = i; break; }
 
-    if (dot == -1) {
-        /* no extension */
-        for (i = 0; in[i] && i < 8; i++)
-            out[i] = to_upper(in[i]);
-    } else {
-        for (i = 0; i < dot && i < 8; i++)
-            out[i] = to_upper(in[i]);
-        for (i = 0; in[dot + 1 + i] && i < 3; i++)
-            out[8 + i] = to_upper(in[dot + 1 + i]);
+    memset(out, ' ', NAME_83_LEN);
+    for (int i = 0; in[i]; i++) {
+        if (in[i] == '.') {
+            dot = i;
+            break;
+        }
+    }
+
+    int base_len = dot == -1 ? (int)strlen(in) : dot;
+    for (int i = 0; i < base_len && i < NAME_LEN; i++) {
+        out[i] = to_upper(in[i]);
+    }
+    if (dot != -1) {
+        for (int i = 0; in[dot + 1 + i] && i < EXT_LEN; i++) {
+            out[NAME_LEN + i] = to_upper(in[dot + 1 + i]);
+        }
     }
 }
 
-/* ───────────────────────────────────────────────
-   FAT12 packed 12-bit entry access.
+/* "FOO     TXT" -> "FOO.TXT" */
+static void entry_display_name(const fat12_entry_t* e, char* out) {
+    int n = 0;
 
-   For cluster N the 12-bit value sits at byte
-   offset  N + (N/2)  in the FAT.
+    for (int i = 0; i < NAME_LEN && e->name[i] != ' '; i++) {
+        out[n++] = e->name[i];
+    }
+    if (e->ext[0] != ' ') {
+        out[n++] = '.';
+        for (int i = 0; i < EXT_LEN && e->ext[i] != ' '; i++) {
+            out[n++] = e->ext[i];
+        }
+    }
+    out[n] = '\0';
+}
 
-   Even cluster → low 12 bits of the 16-bit word.
-   Odd  cluster → high 12 bits of the 16-bit word.
-─────────────────────────────────────────────── */
+static bool entry_is_file(const fat12_entry_t* e) {
+    return e->name[0] != ENTRY_DELETED && e->attributes != ATTR_LONG_NAME;
+}
 
+static bool entry_matches(const fat12_entry_t* e, const char* name_83) {
+    return memcmp(e->name, name_83, NAME_LEN) == 0 &&
+           memcmp(e->ext, name_83 + NAME_LEN, EXT_LEN) == 0;
+}
+
+/* ---- the FAT ------------------------------------------------------ */
+
+/*
+ * FAT12 packs two 12-bit entries into three bytes, so entry N starts at
+ * byte N + N/2. Even entries use the low 12 bits of the 16-bit word there,
+ * odd entries the high 12 bits.
+ */
 static uint16_t fat12_get(uint32_t cluster) {
-    uint32_t  offset = cluster + (cluster / 2);
-    uint16_t  val    = (uint16_t)(fat_buffer[offset]) |
-                       ((uint16_t)(fat_buffer[offset + 1]) << 8);
-    return (cluster % 2 == 0) ? (val & 0x0FFF) : (val >> 4);
+    uint32_t offset = cluster + cluster / 2;
+    uint16_t word = fat_buffer[offset] | (fat_buffer[offset + 1] << 8);
+
+    return (cluster % 2 == 0) ? (word & 0x0FFF) : (word >> 4);
+}
+
+/* Write the FAT sector holding byte 'offset' back to disk. */
+static void fat_flush_sector_of(uint32_t offset) {
+    uint32_t sector = offset / ATA_SECTOR_SIZE;
+
+    if (sector < fat_sectors) {
+        ata_write(fat_start + sector, 1, (uint16_t*)(fat_buffer + sector * ATA_SECTOR_SIZE));
+    }
 }
 
 static void fat12_set(uint32_t cluster, uint16_t value) {
-    uint32_t offset = cluster + (cluster / 2);
+    uint32_t offset = cluster + cluster / 2;
 
     if (cluster % 2 == 0) {
-        /* low byte  = low 8 bits of value
-           high byte = keep high nibble, replace low nibble with bits 11-8 */
-        fat_buffer[offset]     = (uint8_t)(value & 0xFF);
-        fat_buffer[offset + 1] = (uint8_t)((fat_buffer[offset + 1] & 0xF0) |
-                                            ((value >> 8) & 0x0F));
+        fat_buffer[offset]     = value & 0xFF;
+        fat_buffer[offset + 1] = (fat_buffer[offset + 1] & 0xF0) | ((value >> 8) & 0x0F);
     } else {
-        /* low byte  = keep low nibble, replace high nibble with bits 3-0
-           high byte = bits 11-4 of value */
-        fat_buffer[offset]     = (uint8_t)((fat_buffer[offset] & 0x0F) |
-                                            ((value & 0x0F) << 4));
-        fat_buffer[offset + 1] = (uint8_t)((value >> 4) & 0xFF);
+        fat_buffer[offset]     = (fat_buffer[offset] & 0x0F) | ((value & 0x0F) << 4);
+        fat_buffer[offset + 1] = (value >> 4) & 0xFF;
     }
 
-    /* Write back the (at most two) affected FAT sectors immediately. */
-    uint32_t sec = offset / 512;
-    ata_write(fat_start + sec, 1,
-              (uint16_t *)(fat_buffer + sec * 512));
-
-    /* If the entry straddles a sector boundary, flush the next sector too. */
-    if ((offset + 1) / 512 != sec) {
-        uint32_t sec2 = sec + 1;
-        if (sec2 < fat_sectors)
-            ata_write(fat_start + sec2, 1,
-                      (uint16_t *)(fat_buffer + sec2 * 512));
+    /* An entry can straddle two sectors; flush both if so. */
+    fat_flush_sector_of(offset);
+    if ((offset + 1) / ATA_SECTOR_SIZE != offset / ATA_SECTOR_SIZE) {
+        fat_flush_sector_of(offset + 1);
     }
 }
 
-/* ───────────────────────────────────────────────
-   Cluster allocator / deallocator
-─────────────────────────────────────────────── */
+static bool cluster_in_chain(uint32_t cluster) {
+    return cluster >= FAT12_FIRST_CLUSTER && cluster < FAT12_CHAIN_END_MIN;
+}
 
-/* Allocate one free cluster and mark it EOF.
-   Returns the cluster number, or 0 on failure. */
+static uint32_t cluster_to_lba(uint32_t cluster) {
+    return data_start + (cluster - FAT12_FIRST_CLUSTER) * sectors_per_cluster;
+}
+
+/* Take one free cluster and mark it end-of-chain. Returns 0 if full. */
 static uint32_t alloc_cluster(void) {
-    for (uint32_t i = 2; i < total_clusters + 2; i++) {
-        if (fat12_get(i) == 0x000) {
-            fat12_set(i, 0xFFF);   /* mark EOF */
+    for (uint32_t i = FAT12_FIRST_CLUSTER; i < total_clusters + FAT12_FIRST_CLUSTER; i++) {
+        if (fat12_get(i) == FAT12_FREE) {
+            fat12_set(i, FAT12_END_OF_CHAIN);
             return i;
         }
     }
-    return 0;   /* disk full */
+    return 0;
 }
 
-/* Free an entire cluster chain starting at 'cluster'. */
 static void free_chain(uint32_t cluster) {
-    while (cluster >= 2 && cluster < 0xFF8) {
+    while (cluster_in_chain(cluster)) {
         uint32_t next = fat12_get(cluster);
-        fat12_set(cluster, 0x000);
+        fat12_set(cluster, FAT12_FREE);
         cluster = next;
     }
 }
 
-/* ───────────────────────────────────────────────
-   Initialisation – must be called once at boot.
-─────────────────────────────────────────────── */
+/* Allocate a linked chain of 'count' clusters. Returns its first cluster,
+   or 0 (with nothing left allocated) if the disk is full. */
+static uint32_t alloc_chain(uint32_t count) {
+    uint32_t first = 0;
+    uint32_t prev = 0;
+
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t c = alloc_cluster();
+        if (!c) {
+            free_chain(first);
+            return 0;
+        }
+        if (prev) {
+            fat12_set(prev, c);
+        } else {
+            first = c;
+        }
+        prev = c;
+    }
+    return first;
+}
+
+/* ---- file data ---------------------------------------------------- */
+
+static void read_chain(uint32_t cluster, uint32_t size, uint8_t* buffer) {
+    uint8_t* tmp = kmalloc(cluster_size);
+    uint32_t done = 0;
+
+    /* Read whole clusters into tmp and copy only what is left of the file,
+       so the last cluster can't overflow the caller's buffer. */
+    while (cluster_in_chain(cluster) && done < size) {
+        uint32_t chunk = size - done < cluster_size ? size - done : cluster_size;
+
+        ata_read(cluster_to_lba(cluster), sectors_per_cluster, (uint16_t*)tmp);
+        memcpy(buffer + done, tmp, chunk);
+        done += chunk;
+        cluster = fat12_get(cluster);
+    }
+    kfree(tmp);
+}
+
+static void write_chain(uint32_t cluster, const uint8_t* data, uint32_t size) {
+    uint8_t* tmp = kmalloc(cluster_size);
+    uint32_t done = 0;
+
+    while (cluster_in_chain(cluster)) {
+        uint32_t chunk = size - done < cluster_size ? size - done : cluster_size;
+
+        memset(tmp, 0, cluster_size);
+        memcpy(tmp, data + done, chunk);
+        ata_write(cluster_to_lba(cluster), sectors_per_cluster, (uint16_t*)tmp);
+        done += chunk;
+        cluster = fat12_get(cluster);
+    }
+    kfree(tmp);
+}
+
+/* ---- root directory ----------------------------------------------- */
+
+static fat12_entry_t* root_dir_load(void) {
+    uint8_t* dir = kmalloc(root_sectors * ATA_SECTOR_SIZE);
+
+    for (uint32_t i = 0; i < root_sectors; i++) {
+        ata_read(root_start + i, 1, (uint16_t*)(dir + i * ATA_SECTOR_SIZE));
+    }
+    return (fat12_entry_t*)dir;
+}
+
+static void root_dir_save_sector(fat12_entry_t* dir, uint32_t sector) {
+    uint8_t* bytes = (uint8_t*)dir;
+    ata_write(root_start + sector, 1, (uint16_t*)(bytes + sector * ATA_SECTOR_SIZE));
+}
+
+static void root_dir_save(fat12_entry_t* dir) {
+    for (uint32_t i = 0; i < root_sectors; i++) {
+        root_dir_save_sector(dir, i);
+    }
+}
+
+/* Index of the entry named 'name_83', or -1. */
+static int root_dir_find(fat12_entry_t* dir, const char* name_83) {
+    for (uint32_t i = 0; i < root_entries; i++) {
+        if (dir[i].name[0] == ENTRY_END_OF_DIR) {
+            break;
+        }
+        if (entry_is_file(&dir[i]) && entry_matches(&dir[i], name_83)) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+/* Index of the first deleted or never-used entry, or -1 if full. */
+static int root_dir_free_slot(fat12_entry_t* dir) {
+    for (uint32_t i = 0; i < root_entries; i++) {
+        if (dir[i].name[0] == ENTRY_END_OF_DIR || dir[i].name[0] == ENTRY_DELETED) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+/* ---- public API --------------------------------------------------- */
 
 void fat12_init(void) {
-    uint16_t sector[256];
+    uint16_t sector[ATA_SECTOR_SIZE / 2];
     ata_read(0, 1, sector);
+    fat12_boot_t* b = (fat12_boot_t*)sector;
 
-    fat12_boot_t *b = (fat12_boot_t *)sector;
-
-    fat_sectors        = b->sectors_per_fat;
-    fat_start          = b->reserved_sectors;
-    root_start         = fat_start + (b->fat_count * fat_sectors);
-    root_size          = ((b->root_entry_count * 32) + 511) / 512;
-    data_start         = root_start + root_size;
+    fat_sectors         = b->sectors_per_fat;
+    fat_start           = b->reserved_sectors;
+    root_start          = fat_start + b->fat_count * fat_sectors;
+    root_entries        = b->root_entry_count;
+    root_sectors        = (root_entries * sizeof(fat12_entry_t) + ATA_SECTOR_SIZE - 1) / ATA_SECTOR_SIZE;
+    data_start          = root_start + root_sectors;
     sectors_per_cluster = b->sectors_per_cluster;
-    cluster_size       = sectors_per_cluster * 512;
+    cluster_size        = sectors_per_cluster * ATA_SECTOR_SIZE;
 
-    /* FIX: derive total_clusters from the actual volume geometry,
-       not from a FAT-buffer size approximation.                   */
-    uint32_t total_sectors = b->total_sectors
-                           ? b->total_sectors
-                           : b->total_sectors_32;
+    uint32_t total_sectors = b->total_sectors ? b->total_sectors : b->total_sectors_32;
     total_clusters = (total_sectors - data_start) / sectors_per_cluster;
 
-    /* Load the entire FAT into RAM. */
-    fat_buffer = (uint8_t *)kmalloc(fat_sectors * 512);
-    for (uint32_t i = 0; i < fat_sectors; i++)
-        ata_read(fat_start + i, 1,
-                 (uint16_t *)(fat_buffer + i * 512));
+    fat_buffer = kmalloc(fat_sectors * ATA_SECTOR_SIZE);
+    for (uint32_t i = 0; i < fat_sectors; i++) {
+        ata_read(fat_start + i, 1, (uint16_t*)(fat_buffer + i * ATA_SECTOR_SIZE));
+    }
 
     serial_printf("fat12: %u clusters of %u bytes\n", total_clusters, cluster_size);
 }
 
-/* ───────────────────────────────────────────────
-   Read a file from the root directory.
+void fat12_list(void) {
+    fat12_entry_t* dir = root_dir_load();
+    char display[DISPLAY_NAME_MAX];
 
-   'buffer' must be at least 'fat12_read' bytes.
-   Caller should call fat12_size() first, or
-   size the buffer conservatively.
-
-   Returns the file's byte size, or 0 if not found.
-─────────────────────────────────────────────── */
-
-uint32_t fat12_read(const char *name, uint8_t *buffer) {
-    char n83[11];
-    to_83(name, n83);
-
-    /* Load root directory. */
-    uint8_t *dir = (uint8_t *)kmalloc(root_size * 512);
-    for (uint32_t i = 0; i < root_size; i++)
-        ata_read(root_start + i, 1,
-                 (uint16_t *)(dir + i * 512));
-
-    fat12_entry_t *e       = (fat12_entry_t *)dir;
-    uint32_t       n_entries = root_size * 512 / sizeof(fat12_entry_t);
-    uint32_t       cluster  = 0;
-    uint32_t       size     = 0;
-
-    for (uint32_t i = 0; i < n_entries; i++) {
-        if (e[i].name[0] == 0x00) break;          /* no more entries */
-        if ((uint8_t)e[i].name[0] == 0xE5) continue; /* deleted        */
-        if (e[i].attributes == 0x0F) continue;    /* LFN              */
-
-        int match = 1;
-        for (int j = 0; j < 8; j++)
-            if (e[i].name[j] != n83[j]) { match = 0; break; }
-        if (match)
-            for (int j = 0; j < 3; j++)
-                if (e[i].ext[j] != n83[8 + j]) { match = 0; break; }
-
-        if (match) {
-            cluster = e[i].start_cluster;
-            size    = e[i].file_size;
-            break;
+    for (uint32_t i = 0; i < root_entries && dir[i].name[0] != ENTRY_END_OF_DIR; i++) {
+        if (entry_is_file(&dir[i])) {
+            entry_display_name(&dir[i], display);
+            printf("    %s  %d bytes\n", display, dir[i].file_size);
         }
     }
-
     kfree(dir);
-    if (!cluster) return 0;
+}
 
-    /* Read cluster chain into buffer, stopping at file_size bytes. */
-    uint32_t remaining = size;
+uint32_t fat12_read(const char* name, uint8_t* buffer) {
+    char name_83[NAME_83_LEN];
+    name_to_83(name, name_83);
 
-    while (cluster >= 2 && cluster < 0xFF8) {
-        uint32_t lba   = data_start + (cluster - 2) * sectors_per_cluster;
-        uint32_t chunk = (remaining < cluster_size) ? remaining : cluster_size;
+    fat12_entry_t* dir = root_dir_load();
+    int index = root_dir_find(dir, name_83);
+    uint32_t cluster = index >= 0 ? dir[index].start_cluster : 0;
+    uint32_t size    = index >= 0 ? dir[index].file_size : 0;
+    kfree(dir);
 
-        /* Read one full cluster into a temp buffer, copy only 'chunk' bytes.
-           This prevents overflowing the caller's buffer on the last cluster. */
-        uint8_t *tmp = (uint8_t *)kmalloc(cluster_size);
-        ata_read(lba, sectors_per_cluster, (uint16_t *)tmp);
-
-        for (uint32_t i = 0; i < chunk; i++)
-            buffer[(size - remaining) + i] = tmp[i];
-
-        kfree(tmp);
-        remaining -= chunk;
-        cluster    = fat12_get(cluster);
+    if (!cluster) {
+        return 0;
     }
-
+    read_chain(cluster, size, buffer);
     return size;
 }
 
-/* ───────────────────────────────────────────────
-   Write (create or overwrite) a file.
+int fat12_write(const char* name, uint8_t* data, uint32_t size) {
+    char name_83[NAME_83_LEN];
+    name_to_83(name, name_83);
 
-   Returns 1 on success, 0 on failure.
-─────────────────────────────────────────────── */
-
-int fat12_write(const char *name, uint8_t *data, uint32_t size) {
-    char n83[11];
-    to_83(name, n83);
-
-    /* Load root directory. */
-    uint8_t *dir = (uint8_t *)kmalloc(root_size * 512);
-    for (uint32_t i = 0; i < root_size; i++)
-        ata_read(root_start + i, 1,
-                 (uint16_t *)(dir + i * 512));
-
-    fat12_entry_t *e        = (fat12_entry_t *)dir;
-    uint32_t       n_entries = root_size * 512 / sizeof(fat12_entry_t);
-
-    int      slot        = -1;
-    uint32_t old_cluster = 0;
-
-    for (uint32_t i = 0; i < n_entries; i++) {
-        if (e[i].name[0] == 0x00) {
-            if (slot == -1) slot = (int)i;
-            break;   /* no entry beyond here can match */
-        }
-
-        if ((uint8_t)e[i].name[0] == 0xE5) {
-            if (slot == -1) slot = (int)i;
-            continue;
-        }
-
-        if (e[i].attributes == 0x0F) continue;  /* LFN */
-
-        int match = 1;
-        for (int j = 0; j < 8; j++)
-            if (e[i].name[j] != n83[j]) { match = 0; break; }
-        if (match)
-            for (int j = 0; j < 3; j++)
-                if (e[i].ext[j] != n83[8 + j]) { match = 0; break; }
-
-        if (match) {
-            /* Overwriting an existing file. */
-            old_cluster = e[i].start_cluster;
-            slot        = (int)i;
-            break;
-        }
+    fat12_entry_t* dir = root_dir_load();
+    int slot = root_dir_find(dir, name_83);
+    if (slot >= 0) {
+        free_chain(dir[slot].start_cluster);    /* overwrite: drop old data */
+    } else {
+        slot = root_dir_free_slot(dir);
     }
-
-    if (slot == -1) {
+    if (slot < 0) {
         printf("root directory full\n");
-        kfree(dir);   /* FIX: was missing in original */
+        kfree(dir);
         return 0;
     }
 
-    /* Free old cluster chain before allocating the new one. */
-    if (old_cluster)
-        free_chain(old_cluster);
-
-    /* Allocate the needed clusters. */
-    uint32_t needed = size ? (size + cluster_size - 1) / cluster_size : 1;
-    uint32_t first  = 0;
-    uint32_t prev   = 0;
-
-    for (uint32_t i = 0; i < needed; i++) {
-        uint32_t c = alloc_cluster();
-        if (!c) {
-            printf("disk full\n");
-            /* Free whatever we already allocated this round. */
-            if (first) free_chain(first);
-            kfree(dir);   /* FIX: was missing in original */
-            return 0;
-        }
-        if (!first) first = c;
-        if (prev)   fat12_set(prev, (uint16_t)c);
-        prev = c;
+    uint32_t clusters = size ? (size + cluster_size - 1) / cluster_size : 1;
+    uint32_t first = alloc_chain(clusters);
+    if (!first) {
+        printf("disk full\n");
+        kfree(dir);
+        return 0;
     }
-    /* prev is already marked 0xFFF by alloc_cluster(). */
+    write_chain(first, data, size);
 
-    /* Write data cluster by cluster. */
-    uint32_t written = 0;
-    uint32_t cur     = first;
-
-    while (cur >= 2 && cur < 0xFF8) {
-        uint32_t lba   = data_start + (cur - 2) * sectors_per_cluster;
-        uint32_t chunk = cluster_size;
-        if (written + chunk > size)
-            chunk = size - written;
-
-        /* Zero-fill a temp buffer, copy data into it, write the sector. */
-        uint8_t *tmp = (uint8_t *)kmalloc(cluster_size);
-        for (uint32_t i = 0; i < cluster_size; i++) tmp[i] = 0;
-        for (uint32_t i = 0; i < chunk; i++)
-            tmp[i] = data[written + i];
-
-        ata_write(lba, sectors_per_cluster, (uint16_t *)tmp);
-        kfree(tmp);
-
-        written += chunk;
-        cur      = fat12_get(cur);
-    }
-
-    /* Fill the directory entry. */
-    for (int i = 0; i < 8; i++)
-        e[slot].name[i] = n83[i];
-    for (int i = 0; i < 3; i++)
-        e[slot].ext[i]  = n83[8 + i];
-
-    e[slot].attributes    = 0x20;          
-    e[slot].start_cluster = (uint16_t)first;
-    e[slot].file_size     = size;
-
-
-    for (uint32_t i = 0; i < root_size; i++)
-        ata_write(root_start + i, 1,(uint16_t *)(dir + i * 512));
-    
+    memcpy(dir[slot].name, name_83, NAME_LEN);
+    memcpy(dir[slot].ext, name_83 + NAME_LEN, EXT_LEN);
+    dir[slot].attributes    = ATTR_ARCHIVE;
+    dir[slot].start_cluster = first;
+    dir[slot].file_size     = size;
+    root_dir_save(dir);
     kfree(dir);
-
 
     printf("Wrote %s (%d bytes)\n", name, size);
     return 1;
 }
 
+int fat12_delete(const char* name) {
+    char name_83[NAME_83_LEN];
+    name_to_83(name, name_83);
 
-void fat12_list(void) {
-    uint8_t *buffer = (uint8_t *)kmalloc(root_size * 512);
-    for (uint32_t i = 0; i < root_size; i++)
-        ata_read(root_start + i, 1,
-                 (uint16_t *)(buffer + i * 512));
-
-    fat12_entry_t *entries   = (fat12_entry_t *)buffer;
-    uint32_t       n_entries = root_size * 512 / sizeof(fat12_entry_t);
-
-    for (uint32_t i = 0; i < n_entries; i++) {
-        if (entries[i].name[0] == 0x00) break;
-        if ((uint8_t)entries[i].name[0] == 0xE5) continue;
-        if (entries[i].attributes == 0x0F) continue;
-
-        /* Build a printable "BASENAME.EXT" string. */
-        char display[13];
-        int  n = 0;
-
-        for (int j = 0; j < 8 && entries[i].name[j] != ' '; j++)
-            display[n++] = entries[i].name[j];
-
-        if (entries[i].ext[0] != ' ') {
-            display[n++] = '.';
-            for (int j = 0; j < 3 && entries[i].ext[j] != ' '; j++)
-                display[n++] = entries[i].ext[j];
-        }
-
-        display[n] = '\0';
-        printf("    %s  %d bytes\n", display, entries[i].file_size);
+    fat12_entry_t* dir = root_dir_load();
+    int index = root_dir_find(dir, name_83);
+    if (index < 0) {
+        kfree(dir);
+        printf("FAT12: file not found\n");
+        return 0;
     }
 
-    kfree(buffer);
-}
-
-int fat12_delete(const char *name) {
-    char n83[11];
-    to_83(name, n83);
-
-    uint8_t *dir = (uint8_t *)kmalloc(root_size * 512);
-    for (uint32_t i = 0; i < root_size; i++)
-        ata_read(root_start + i, 1, (uint16_t *)(dir + i * 512));
-
-    fat12_entry_t *e     = (fat12_entry_t *)dir;
-    uint32_t       n_ent = root_size * 512 / sizeof(fat12_entry_t);
-
-    for (uint32_t i = 0; i < n_ent; i++) {
-        if (e[i].name[0] == 0x00) break;
-        if ((uint8_t)e[i].name[0] == 0xE5) continue;
-        if (e[i].attributes == 0x0F) continue;
-
-        int match = 1;
-        for (int j = 0; j < 8; j++)
-            if (e[i].name[j] != n83[j]) { match = 0; break; }
-        if (match)
-            for (int j = 0; j < 3; j++)
-                if (e[i].ext[j] != n83[8 + j]) { match = 0; break; }
-
-        if (match) {
-            free_chain(e[i].start_cluster);  // free clusters in FAT
-            e[i].name[0] = 0xE5;             // mark entry as deleted
-
-            // flush only the sector containing this entry
-            uint32_t sec = i / (512 / sizeof(fat12_entry_t));
-            ata_write(root_start + sec, 1,
-                      (uint16_t *)(dir + sec * 512));
-
-            kfree(dir);
-            printf("FAT12: deleted %s\n", name);
-            return 1;
-        }
-    }
-
+    free_chain(dir[index].start_cluster);
+    dir[index].name[0] = ENTRY_DELETED;
+    root_dir_save_sector(dir, index * sizeof(fat12_entry_t) / ATA_SECTOR_SIZE);
     kfree(dir);
-    printf("FAT12: file not found\n");
-    return 0;
+
+    printf("FAT12: deleted %s\n", name);
+    return 1;
 }

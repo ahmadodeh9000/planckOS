@@ -158,3 +158,49 @@ non-zero signature in the LBA mid/high registers means an ATAPI device
 
 **Known limits.** Only the primary slave. LBA28 (128 GB max). Busy-waits,
 and never times out if the drive doesn't answer.
+
+## FAT12 file system — `fs/fat12.c`
+
+**What it does.** Lists, reads, writes and deletes files in the root
+directory of the FAT12 data disk.
+
+**How it works.** The disk is laid out as:
+
+```
+| boot sector (BPB) | FAT #1 | FAT #2 | root directory | data: cluster 2, 3, ... |
+```
+
+`fat12_init()` reads the BPB (BIOS Parameter Block) in sector 0 and works
+out where each area starts. It also loads the whole first FAT into RAM.
+
+- **Directory entries** are 32 bytes: an 8.3 name, attributes, the first
+  cluster and the file size. A first name byte of `0x00` means "no more
+  entries" and `0xE5` means "deleted". Attribute `0x0F` marks long-file-name
+  pieces, which are skipped.
+- **The FAT** has one 12-bit entry per cluster. It holds the next cluster of
+  the file, `0x000` (free), or `>= 0xFF8` (end of chain). Two entries share
+  three bytes, so entry *N* starts at byte `N + N/2`: even entries use the
+  low 12 bits of that 16-bit word and odd entries the high 12 bits.
+  `fat12_set()` writes the changed FAT sector straight back to disk (two
+  sectors if the entry straddles a boundary).
+- **Writing** a file frees its old chain (if it existed), allocates a new
+  chain, writes the data cluster by cluster (zero-padding the last one),
+  then fills in the directory entry and saves the directory.
+
+**Key functions.**
+
+| Function | Purpose |
+|----------|---------|
+| `fat12_init()` | Read the BPB and the FAT. |
+| `fat12_list()` | Print each file and its size. |
+| `fat12_read(name, buf)` | Read a file into `buf`; returns its size, or 0 if not found. |
+| `fat12_write(name, data, size)` | Create or overwrite. |
+| `fat12_delete(name)` | Free the chain and mark the entry `0xE5`. |
+
+**Extending it.** Subdirectories are directory entries with attribute `0x10`
+whose cluster chain holds more 32-byte entries. Supporting them means
+running `root_dir_find` over a chain instead of the fixed root area. A
+`fat12_size(name)` would let callers size buffers exactly.
+
+**Known limits.** Root directory only. Only the first FAT copy is updated.
+No timestamps. `fat12_read` trusts the caller's buffer to be large enough.
