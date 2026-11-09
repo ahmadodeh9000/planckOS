@@ -53,3 +53,16 @@ reserve the image as whole pages (see `MEMORY.md`).
 
 - The boot stack is a fixed 8 KB.
 - The kernel runs where it was loaded (no higher-half mapping).
+
+## Boot information (`arch/multiboot.h`)
+
+`multiboot_info_t` mirrors the structure GRUB fills in. Each group of fields
+is only valid when its bit in `flags` is set:
+
+| Flag bit | Fields | Used by |
+|----------|--------|---------|
+| 6 (`MULTIBOOT_FLAG_MMAP`) | `mmap_addr`, `mmap_length` | `pmm_init` |
+| 12 (`MULTIBOOT_FLAG_FRAMEBUFFER`) | `framebuffer_addr`, `_pitch`, `_width`, `_height`, `_bpp`, `_type`, color field positions | the graphics code |
+
+`kmain` logs the framebuffer GRUB reports. In plain text mode that's
+type 2 (EGA text), 80x25 at `0xB8000`.

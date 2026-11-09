@@ -39,6 +39,16 @@ static void memory_init(multiboot_info_t* mbi) {
     heap_init();
 }
 
+static void log_framebuffer(multiboot_info_t* mbi) {
+    if (!(mbi->flags & MULTIBOOT_FLAG_FRAMEBUFFER)) {
+        serial_printf("boot: no framebuffer info\n");
+        return;
+    }
+    serial_printf("boot: framebuffer type %u, %ux%ux%u, pitch %u, at %x\n",
+                  mbi->framebuffer_type, mbi->framebuffer_width, mbi->framebuffer_height,
+                  mbi->framebuffer_bpp, mbi->framebuffer_pitch, (uint32_t)mbi->framebuffer_addr);
+}
+
 static void storage_init(void) {
     bool has_disk = ata_detect();
 
@@ -55,8 +65,11 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
         serial_printf("boot: bad multiboot magic %x\n", magic);
     }
 
+    multiboot_info_t* mbi = (multiboot_info_t*)mbi_addr;
+    log_framebuffer(mbi);
+
     cpu_init();
-    memory_init((multiboot_info_t*)mbi_addr);
+    memory_init(mbi);
     storage_init();
 
     keyboard_init();
