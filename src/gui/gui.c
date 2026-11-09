@@ -10,6 +10,7 @@
  */
 #include "gui/gui.h"
 #include "gui/event.h"
+#include "gui/cursor.h"
 #include "gfx/fb.h"
 #include "gfx/font.h"
 #include "lib/string.h"
@@ -82,6 +83,8 @@ static void gui_draw(surface_t* screen) {
     line[strlen(line) + 1] = '\0';
     line[strlen(line)] = state.last_key ? state.last_key : '-';
     font_draw_text(screen, x, y + 3 * LINE_HEIGHT, line, COLOR_TEXT);
+
+    cursor_draw(screen, state.mouse_x, state.mouse_y);
 }
 
 void gui_main_loop(void) {

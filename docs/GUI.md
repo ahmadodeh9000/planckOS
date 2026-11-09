@@ -22,3 +22,13 @@ moves causes one redraw, not 20.
 
 For now the screen is a placeholder that shows the live pointer position,
 held buttons and the last key. The window manager replaces it.
+
+## Mouse cursor — `gui/cursor.c`
+
+The arrow is stored as ASCII art (`X` outline, `.` fill, space =
+transparent), so you can edit its shape directly in the source.
+`cursor_draw(surface, x, y)` puts the tip at `(x, y)` and is called last
+in every redraw, so it always sits on top. There's no "save what was under
+the cursor" trick: the whole frame is redrawn from scratch, so the old
+cursor position simply gets painted over. `surface_put_pixel` clips, so the
+cursor can hang off the right or bottom edge.
