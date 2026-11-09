@@ -35,3 +35,32 @@ before using it.
 
 **Known limits.** Everything still runs in ring 0, so no call is protected
 yet. `SYS_EXIT` halts the whole machine.
+
+## GDT and TSS — `arch/gdt.c`
+
+**What it does.** Sets up the segment descriptors the CPU needs in protected
+mode, plus a Task State Segment (TSS) for future ring changes.
+
+**How it works.** planckOS uses a flat memory model. Every code and data
+segment has base 0 and limit 4 GB, so segmentation does nothing and paging
+does the real work.
+
+| Index | Selector | Descriptor |
+|-------|----------|------------|
+| 0 | `0x00` | Null (required) |
+| 1 | `0x08` | Kernel code (ring 0) |
+| 2 | `0x10` | Kernel data (ring 0) |
+| 3 | `0x18` | User code (ring 3, selector `0x1B` with RPL 3) |
+| 4 | `0x20` | User data (ring 3, selector `0x23`) |
+| 5 | `0x28` | TSS |
+
+`gdt_flush` (in `gdt.s`) runs `lgdt`, reloads the data segment registers with
+`0x10`, and does a far jump to `0x08:.flush` to reload `cs`.
+
+A descriptor's **limit** is the offset of the *last* valid byte, so the TSS
+limit is `sizeof(tss) - 1`. The TSS's `esp0`/`ss0` fields tell the CPU which
+stack to switch to when an interrupt arrives in ring 3. `esp0` is still 0
+(marked TODO), which is harmless only while everything runs in ring 0.
+
+**Known limits.** The TSS is described but not loaded yet (`tss_flush` /
+`ltr` isn't called). That's the first step toward user mode.

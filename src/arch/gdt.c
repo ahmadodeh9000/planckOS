@@ -24,7 +24,7 @@ static void set_gdt_entry(int i, uint32_t base, uint32_t limit, uint8_t access, 
 
 void write_tss(uint32_t num, uint16_t ss0, uint32_t esp0) {
     uint32_t base   = (uint32_t) &tss;
-    uint32_t limit  = base + sizeof(tss);
+    uint32_t limit  = sizeof(tss) - 1;    /* a limit is the last valid offset */
 
     set_gdt_entry(num,base,limit,0xE9,0x0);
     kmemset(&tss,0,sizeof(tss));
@@ -49,6 +49,8 @@ void gdt_init() {
     set_gdt_entry(3,0,0xFFFFF,0xFA,0xCF);   /* User Mode Code Segment   */
     set_gdt_entry(4,0,0xFFFFF,0xF2,0xCF);   /* User Mode Data Segment   */
 
+    /* TODO: esp0 must point at a kernel stack before user mode exists. The
+       CPU loads it from the TSS on every ring 3 -> ring 0 switch. */
     write_tss(5,0x10,0x0);                  /* TSS */
 
     gdt_flush(&gdt_p);
