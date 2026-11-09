@@ -28,6 +28,12 @@ the same as in text mode.
 Each Terminal window has its own `shell_t`, so several can run side by
 side.
 
+**Extending it.** New shell commands go in the `commands` table in
+`shell/shell.c`: write `cmd_name(shell_t* sh, const char* args)` that
+prints with `console_printf(sh->con, ...)`, and add a row. It then works in
+both text mode and every Terminal window. Scrollback would mean keeping more
+rows than `TERM_ROWS` and drawing a window onto them.
+
 **Known limits.** No scrollback. Fixed 80x24. No cursor keys.
 
 ## Notepad — `apps/notepad.c`
@@ -55,6 +61,10 @@ Files app opens existing files in it (`notepad_open_file(name)`).
 - *Saving.* `fat12_write(name, text, length)`. The result is shown next to
   the Save button, and the window title changes to the file name.
 
+**Extending it.** An insertion point (an index into `text`) plus arrow key
+events would allow editing in the middle. Insert and delete would then
+shift the rest of the buffer with a loop or `memmove`.
+
 **Known limits.** You can only edit at the end (no cursor movement: the
 keyboard driver doesn't report arrow keys yet). No scrolling back to
 earlier lines in long files. 8 KB maximum.
@@ -80,6 +90,10 @@ long lists.
 - *Opening* calls `notepad_open_file(name)`. That's how apps use each
   other: through the other app's public header.
 
+**Extending it.** A "New" button could call `notepad_open()`. A rename
+would need a new `fat12_rename` that only rewrites the 8.3 name in the
+directory entry.
+
 **Known limits.** Up to 128 files are shown. Delete doesn't ask for
 confirmation.
 
@@ -96,6 +110,9 @@ invalidates the window, so the figures refresh every second.
 
 Note that "RAM used" includes the whole 16 MB heap, which is reserved in
 the PMM up front, and "Heap used" includes the 3 MB screen back buffer.
+
+**Extending it.** Add a row: one more `about_row(s, 6, "Name:", value)`, and
+make the window taller.
 
 ## Shut down
 

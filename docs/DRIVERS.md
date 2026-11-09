@@ -105,7 +105,11 @@ register number to port `0x3D4` (`0x0E` = cursor position high byte,
 
 **Key functions.** `vga_console()`.
 
-**Known limits.** Black background only.
+**Extending it.** Background colors only need the attribute's high nibble.
+`console_t.put_char` could take a combined attribute instead of a
+foreground index.
+
+**Known limits.** Black background only. No scrollback.
 
 ## Console sinks — `lib/console.c`
 
@@ -115,6 +119,10 @@ state. The helpers on top (`console_print`, `console_printf` with
 `%s %c %d %u %x`, `console_print_rainbow`) only ever call those two
 functions. That's how the shell runs unchanged on the VGA screen and inside
 Terminal windows: each provides its own sink.
+
+To make a new sink, fill in a `console_t` with your two functions and point
+`data` at your state (see `apps/terminal.c`). A serial-port sink, for
+example, would let you run a shell over COM1.
 
 ## Keyboard — `drivers/keyboard.c`
 
@@ -135,6 +143,12 @@ It doesn't echo anything. Showing the character is up to whoever reads
 the event.
 
 **Key functions.** `keyboard_init()` hooks IRQ1.
+
+**Extending it.** Arrow keys send a `0xE0` prefix byte, then their code
+(`0x48` up, `0x50` down, `0x4B` left, `0x4D` right). Remember that a
+prefix was seen, and push a new event field (e.g. a `KEY_LEFT` constant
+outside the ASCII range). Ctrl and Caps Lock work like Shift: track their
+press and release codes.
 
 **Known limits.** US layout only. No Ctrl/Alt/Caps Lock. Extended keys
 (arrows, `0xE0`-prefixed codes) are ignored.
@@ -183,6 +197,11 @@ the overflow bits set are ignored.
 **Key functions.** `mouse_init(width, height)`. The pointer starts in the
 middle of the screen.
 
+**Extending it.** For a scroll wheel, send the "magic" sample-rate
+sequence 200, 100, 80 (command `0xF3` each time). Then ask for the device
+ID (`0xF2`): if it answers 3, packets become 4 bytes, and the 4th is the
+wheel movement.
+
 **Known limits.** No scroll wheel (that needs the IntelliMouse 4-byte
 mode). Movement isn't accelerated. In a QEMU window the mouse is relative,
 so click into the window to grab it (Ctrl+Alt+G releases it).
@@ -209,6 +228,11 @@ A transfer:
 `ata_detect()` sends IDENTIFY (`0xEC`). A status of 0 means no drive. A
 non-zero signature in the LBA mid/high registers means an ATAPI device
 (not a disk).
+
+**Extending it.** The primary master uses select values `0xA0`/`0xE0`.
+Supporting several disks means passing the drive (and bus base port) to
+each call. Using IRQ14 instead of polling would let the CPU do other work
+during transfers.
 
 **Key functions.** `ata_detect()`, `ata_read(lba, count, buf)`,
 `ata_write(lba, count, buf)`.
@@ -265,3 +289,21 @@ running `root_dir_find` over a chain instead of the fixed root area.
 
 **Known limits.** Root directory only. Only the first FAT copy is updated.
 No timestamps.
+
+## Power — `drivers/power.c`
+
+**What it does.** `power_off()` turns the (virtual) machine off. It's used
+by the shell's `quit` and the launcher's "Shut down".
+
+**How it works.** Real hardware is switched off through ACPI: you find the
+PM1a control port in the ACPI tables and write "sleep type 5 + enable" to
+it. QEMU and Bochs expose that register at fixed ports, `0x604` and
+`0xB004`, so the driver writes `0x2000` to both. If neither works, it
+disables interrupts and halts.
+
+**Extending it.** Real ACPI shutdown means finding the RSDP (search for
+`"RSD PTR "` below 1 MB), following it to the FADT for the PM1a port, and
+reading the `\_S5` sleep type from the DSDT. A reboot can be done by
+pulsing the keyboard controller's reset line (write `0xFE` to port `0x64`).
+
+**Known limits.** Only works in emulators.

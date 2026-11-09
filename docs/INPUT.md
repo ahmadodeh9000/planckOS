@@ -78,6 +78,14 @@ shell does it in `shell_key()`. In text mode `shell_run()` feeds it from
 So readers never need to do pointer math. Every mouse event already
 carries screen coordinates.
 
+## Known limits
+
+- One keyboard layout (US), and no arrow, function or modifier keys other
+  than Shift.
+- No mouse wheel.
+- Events carry no timestamps. Apps that need timing (like the double-click
+  in Files) read `timer_ticks()` when they handle the event.
+
 ## Testing input without hands
 
 The QEMU monitor can inject input, which is handy for scripted tests:

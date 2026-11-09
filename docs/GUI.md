@@ -5,15 +5,18 @@ context. Interrupt handlers only feed it events (see `INPUT.md`).
 
 ## Main loop — `gui/gui.c`
 
-`kmain` calls `gui_main_loop()` when `fb_init()` found a framebuffer. The
-loop never returns:
+**What it does.** Owns the screen once graphics are up: waits for input,
+hands it out, and draws new frames.
+
+**How it works.** `kmain` calls `gui_main_loop()` when `fb_init()` found a
+framebuffer. The loop never returns:
 
 ```
 for (;;) {
     event_wait(&event);                 // sleep (hlt) until input arrives
     changed = dispatch(event);          // and every other queued event
     if (changed) {
-        compose();                      // desktop, windows, cursor
+        compose();                      // desktop, windows, taskbar, menu, cursor
         fb_present();                   // show the new frame
     }
 }
@@ -21,8 +24,26 @@ for (;;) {
 
 Taking all queued events before drawing means a fast mouse that queued 20
 moves causes one redraw, not 20. A frame is composed back to front: the
-desktop color, then every window from bottom to top (`wm_draw`), then the
-mouse cursor.
+desktop color, every window from bottom to top (`wm_draw`), the taskbar,
+the launcher menu, and finally the mouse cursor.
+
+`gui_dispatch` decides who gets each event:
+
+| Event | Goes to |
+|-------|---------|
+| `EVENT_MOUSE_DOWN` | the launcher menu, else the taskbar, else the window manager |
+| `EVENT_MOUSE_MOVE` / `_UP` | the menu (for hover) and the window manager |
+| `EVENT_KEY` | the window manager, which passes it to the focused window |
+| `EVENT_TIMER` | the window manager (every window's `on_timer`); the clock always redraws |
+
+**Key functions.** `gui_main_loop()`. Everything else is static.
+
+**Extending it.** A desktop background image would be a `surface_blit`
+instead of the first `surface_fill_rect` in `gui_compose`. Keyboard
+shortcuts (e.g. a key that cycles windows) would be checked in
+`gui_dispatch` before the event reaches the window manager.
+
+**Known limits.** Every change redraws and presents the whole screen.
 
 ## Window manager — `gui/wm.c`
 
@@ -103,6 +124,9 @@ the cursor" trick: the whole frame is redrawn from scratch, so the old
 cursor position simply gets painted over. `surface_put_pixel` clips, so the
 cursor can hang off the right or bottom edge.
 
+**Extending it.** Different cursor shapes (a text I-beam over text boxes,
+say) would be more ASCII-art tables plus a way for windows to choose one.
+
 ## Taskbar — `gui/taskbar.c`
 
 **What it does.** The 28 px bar at the bottom of the screen, from left to
@@ -123,6 +147,10 @@ clock (`HH:MM:SS`).
 - *The clock.* The PIT handler pushes an `EVENT_TIMER` once a second. That
   wakes the main loop, which redraws, and the clock shows
   `timer_ticks() / TIMER_HZ` as hours, minutes and seconds.
+
+**Extending it.** A minimize feature would hide windows and use the taskbar
+buttons to bring them back. A real-time clock would read the CMOS RTC
+(ports `0x70`/`0x71`) instead of showing uptime.
 
 **Known limits.** Buttons don't shrink, so only about five window buttons
 fit at 1024 px.
@@ -197,6 +225,12 @@ static void files_mouse(window_t* win, const event_t* e) {
     window_invalidate(win);     /* repaint with the new state */
 }
 ```
+
+**Extending it.** Keep new helpers in the same style: a draw function taking
+a surface and a `rect_t`, plus, if needed, a function that interprets a
+click or key and returns what changed. A checkbox, for example, would be
+`widget_checkbox(s, r, label, checked)` with clicks checked through
+`rect_contains`.
 
 **Known limits.** No pressed/hover look for buttons. Text boxes only edit at
 the end (no cursor movement or selection). Lists don't draw a scrollbar;

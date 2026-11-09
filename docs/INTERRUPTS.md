@@ -62,8 +62,13 @@ limit is `sizeof(tss) - 1`. The TSS's `esp0`/`ss0` fields tell the CPU which
 stack to switch to when an interrupt arrives in ring 3. `esp0` is still 0
 (marked TODO), which is harmless only while everything runs in ring 0.
 
-**Known limits.** The TSS is described but not loaded yet. Loading it with
-`ltr 0x2B` (index 5, RPL 3) is the first step toward user mode.
+**Key functions.** `gdt_init()`, called first in `cpu_init`.
+
+**Extending it.** For user mode, set `esp0` to the top of a kernel stack,
+load the TSS with `ltr` (selector `0x2B`), then enter ring 3 with an
+`iret` frame that uses the user selectors `0x1B`/`0x23`. See `ROADMAP.md`.
+
+**Known limits.** The TSS is described but not loaded yet.
 
 ## IDT and PIC — `arch/idt.c`, `arch/idt.s`
 
