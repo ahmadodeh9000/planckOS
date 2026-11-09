@@ -17,6 +17,7 @@
 #include "drivers/keyboard.h"
 #include "drivers/ata.h"
 #include "fs/fat12.h"
+#include "gfx/fb.h"
 #include "shell/shell.h"
 
 #if !defined(__i386__)
@@ -58,6 +59,18 @@ static void storage_init(void) {
     }
 }
 
+/* Placeholder until the window manager exists: shows that drawing works. */
+static void boot_screen_show(void) {
+    uint32_t w = fb_width();
+    uint32_t h = fb_height();
+
+    fb_fill_rect(0, 0, w, h, FB_RGB(0x20, 0x4A, 0x87));
+    fb_fill_rect(w / 4, h / 4, w / 2, h / 2, FB_RGB(0xEE, 0xEE, 0xEC));
+    fb_fill_rect(w / 4, h / 4, w / 2, 24, FB_RGB(0x34, 0x65, 0xA4));
+    fb_fill_rect(-50, h - 40, w + 100, 40, FB_RGB(0x2E, 0x34, 0x36));
+    fb_present();
+}
+
 void kmain(uint32_t magic, uint32_t mbi_addr) {
     serial_init();
     serial_printf("\n%s %s (kernel %s) booting\n", OS_NAME, OS_VERSION, KERNEL_NAME);
@@ -72,6 +85,12 @@ void kmain(uint32_t magic, uint32_t mbi_addr) {
     memory_init(mbi);
     storage_init();
 
+    if (fb_init(mbi)) {
+        boot_screen_show();
+        for (;;) asm volatile("hlt");
+    }
+
+    /* No usable framebuffer: fall back to the text-mode shell. */
     keyboard_init();
     serial_printf("keyboard: ready, starting shell\n");
     shell_run();

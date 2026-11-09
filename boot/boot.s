@@ -8,9 +8,16 @@
 bits 32
 
 MULTIBOOT_MAGIC     equ 0x1BADB002
+MULTIBOOT_PAGE_ALIGN equ 1 << 0                 ; load modules on page boundaries
 MULTIBOOT_MEMINFO   equ 1 << 1                  ; ask for the memory map
-BOOT_FLAGS          equ MULTIBOOT_MEMINFO
+MULTIBOOT_VIDEO     equ 1 << 2                  ; ask for a video mode (fields below)
+BOOT_FLAGS          equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMINFO | MULTIBOOT_VIDEO
 CHECKSUM            equ -(MULTIBOOT_MAGIC + BOOT_FLAGS)  ; the three must sum to 0
+
+VIDEO_MODE_LINEAR   equ 0                       ; 0 = graphics, 1 = text
+VIDEO_WIDTH         equ 1024
+VIDEO_HEIGHT        equ 768
+VIDEO_DEPTH         equ 32                      ; bits per pixel
 
 KERNEL_STACK_SIZE   equ 8192
 
@@ -21,6 +28,14 @@ section .multiboot
     dd MULTIBOOT_MAGIC
     dd BOOT_FLAGS
     dd CHECKSUM
+    ; header_addr, load_addr, load_end_addr, bss_end_addr, entry_addr. Only
+    ; used for non-ELF kernels (flag bit 16), but they must be present
+    ; because the video fields come after them.
+    dd 0, 0, 0, 0, 0
+    dd VIDEO_MODE_LINEAR
+    dd VIDEO_WIDTH
+    dd VIDEO_HEIGHT
+    dd VIDEO_DEPTH
 
 section .text
 global start

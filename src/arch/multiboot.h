@@ -49,6 +49,11 @@ typedef struct {
     uint8_t  framebuffer_bpp;
     uint8_t  framebuffer_type;  /* MULTIBOOT_FRAMEBUFFER_* */
 
+    /* GRUB declares the color info below as a union that also holds a
+       32-bit palette address, so the compiler aligns it to 4 bytes. That
+       leaves two unused bytes here. */
+    uint8_t  color_info_padding[2];
+
     /* For MULTIBOOT_FRAMEBUFFER_RGB: bit position and size of each color. */
     uint8_t  red_field_position;
     uint8_t  red_mask_size;

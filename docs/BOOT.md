@@ -23,9 +23,13 @@
 
 ```
 dd MULTIBOOT_MAGIC   ; 0x1BADB002
-dd BOOT_FLAGS        ; bit 1: give us the memory map
+dd BOOT_FLAGS        ; bits 0-2: page-align modules, memory map, video mode
 dd CHECKSUM          ; -(MAGIC + FLAGS), so the three add up to 0
+dd 0, 0, 0, 0, 0     ; address fields (unused for ELF kernels)
+dd 0, 1024, 768, 32  ; video request: linear graphics, 1024x768x32
 ```
+
+See `GRAPHICS.md` for how the video request turns into a framebuffer.
 
 GRUB only searches the **first 8 KB** of the kernel file for this header. It
 lives in its own `.multiboot` section, and `link.ld` places it at the very
@@ -64,5 +68,9 @@ is only valid when its bit in `flags` is set:
 | 6 (`MULTIBOOT_FLAG_MMAP`) | `mmap_addr`, `mmap_length` | `pmm_init` |
 | 12 (`MULTIBOOT_FLAG_FRAMEBUFFER`) | `framebuffer_addr`, `_pitch`, `_width`, `_height`, `_bpp`, `_type`, color field positions | the graphics code |
 
-`kmain` logs the framebuffer GRUB reports. In plain text mode that's
+`kmain` logs the framebuffer GRUB reports. In graphics mode that's type 1
+(RGB), 1024x768x32 at `0xFD000000` under QEMU. With `gfxpayload=text` it's
 type 2 (EGA text), 80x25 at `0xB8000`.
+
+Then `kmain` picks a mode: if `fb_init()` accepts the framebuffer, it goes
+graphical. Otherwise it starts the text shell.

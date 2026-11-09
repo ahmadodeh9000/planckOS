@@ -127,3 +127,4 @@ against double frees or overruns.
 | `kernel_end - +16 MB` | Kernel heap. Reserved in the PMM. |
 | `... - 64 MB` | Free pages for `pmm_alloc_page()`. Identity-mapped. |
 | `64 MB - end of RAM` | Free pages, not mapped yet. |
+| `0xFD000000 - +3 MB` (QEMU) | Linear framebuffer (video memory, not RAM). Identity-mapped by `fb_init()` with `paging_map()`. |
