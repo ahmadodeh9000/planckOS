@@ -6,7 +6,7 @@
  * The loop sleeps until an input event arrives, hands every queued event
  * to the taskbar or the window manager, and redraws only if something
  * changed. A frame is composed back to front: desktop, windows (bottom to
- * top), taskbar, mouse cursor.
+ * top), taskbar, launcher menu, mouse cursor.
  * Drawing happens here, in normal kernel context, never inside an
  * interrupt handler.
  */
@@ -16,7 +16,7 @@
 #include "gui/theme.h"
 #include "gui/wm.h"
 #include "gui/taskbar.h"
-#include "apps/demo.h"
+#include "gui/menu.h"
 #include "gfx/fb.h"
 
 static int mouse_x;
@@ -31,10 +31,11 @@ static bool gui_dispatch(const event_t* e) {
         case EVENT_MOUSE_DOWN:
             mouse_x = e->x;
             mouse_y = e->y;
-            return taskbar_mouse_down(e) || wm_handle_event(e);
+            return menu_mouse_down(e) || taskbar_mouse_down(e) || wm_handle_event(e);
         default:
             mouse_x = e->x;
             mouse_y = e->y;
+            menu_mouse_move(e);
             return wm_handle_event(e);
     }
 }
@@ -43,6 +44,7 @@ static void gui_compose(surface_t* screen) {
     surface_fill_rect(screen, 0, 0, screen->width, screen->height, THEME_DESKTOP);
     wm_draw(screen);
     taskbar_draw(screen);
+    menu_draw(screen);
     cursor_draw(screen, mouse_x, mouse_y);
 }
 
@@ -54,8 +56,6 @@ void gui_main_loop(void) {
     mouse_y = screen->height / 2;
     wm_init(screen->width, screen->height - THEME_TASKBAR_HEIGHT);
     taskbar_init(screen->width, screen->height);
-    demo_open();
-    demo_open();
 
     gui_compose(screen);
     fb_present();

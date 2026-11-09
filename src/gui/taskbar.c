@@ -1,6 +1,8 @@
 /*
  * taskbar.c - launcher button, window buttons and uptime clock.
  *
+ * The launcher button is drawn here, but clicks on it are handled by the
+ * launcher menu (menu.c), which pops up above it.
  * Window buttons are listed in the order the windows were opened (not
  * z-order), so they don't jump around when you click between windows. The
  * focused window's button is highlighted; clicking a button raises its
@@ -9,6 +11,7 @@
 #include "gui/taskbar.h"
 #include "gui/theme.h"
 #include "gui/wm.h"
+#include "gui/menu.h"
 #include "gfx/font.h"
 #include "drivers/timer.h"
 #include "lib/string.h"
@@ -25,17 +28,18 @@
 
 static rect_t bar;
 
+static rect_t launcher_button(void) {
+    rect_t r = { BUTTON_GAP, bar.y + BUTTON_MARGIN_Y, LAUNCHER_WIDTH,
+                 bar.h - 2 * BUTTON_MARGIN_Y };
+    return r;
+}
+
 void taskbar_init(int screen_width, int screen_height) {
     bar.x = 0;
     bar.y = screen_height - THEME_TASKBAR_HEIGHT;
     bar.w = screen_width;
     bar.h = THEME_TASKBAR_HEIGHT;
-}
-
-static rect_t launcher_button(void) {
-    rect_t r = { BUTTON_GAP, bar.y + BUTTON_MARGIN_Y, LAUNCHER_WIDTH,
-                 bar.h - 2 * BUTTON_MARGIN_Y };
-    return r;
+    menu_init(launcher_button());
 }
 
 static rect_t window_button(int slot) {
@@ -67,7 +71,6 @@ bool taskbar_mouse_down(const event_t* e) {
     }
     window_t* list[MAX_TASK_BUTTONS];
     int count = windows_in_open_order(list);
-
     for (int i = 0; i < count; i++) {
         if (rect_contains(window_button(i), e->x, e->y)) {
             window_raise(list[i]);

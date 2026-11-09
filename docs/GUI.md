@@ -125,6 +125,35 @@ clock (`HH:MM:SS`).
 **Known limits.** Buttons don't shrink, so only about five window buttons
 fit at 1024 px.
 
+## Launcher menu — `gui/menu.c` and `apps/apps.c`
+
+**What it does.** Clicking the `planckOS` button on the taskbar pops up a
+menu listing every registered app. Clicking an entry opens that app.
+
+**How it works.** The app list is a plain array in `apps/apps.c`:
+
+```c
+const app_entry app_list[] = {
+    { "Widget demo", demo_open },
+};
+```
+
+The menu draws one 24 px row per entry, right above the launcher button,
+and highlights the row under the pointer (`menu_mouse_move`). Every mouse
+press goes to `menu_mouse_down()` first:
+
+- on the launcher button: toggle the menu,
+- on a row: close the menu and call that app's `open()`,
+- anywhere else: close the menu and let the taskbar or windows handle the
+  press as usual.
+
+The menu owns the launcher button's clicks (the taskbar only draws it).
+Otherwise one click would close the menu and the taskbar would reopen it
+straight away.
+
+**Extending it.** Add one line to `app_list`. `APPS.md` walks through
+writing a new app.
+
 ## Widgets — `gui/widget.c`
 
 **What it does.** Small helpers for drawing common controls inside a
