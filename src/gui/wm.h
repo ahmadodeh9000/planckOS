@@ -20,6 +20,8 @@ typedef struct window window_t;
 
 struct window {
     char title[WINDOW_TITLE_MAX];
+    uint32_t id;                /* creation order, so the taskbar can list
+                                   windows in a stable order */
     int x, y;                   /* top-left of the frame, in screen pixels */
     surface_t surface;          /* content pixels; its size is the content size */
     bool dirty;                 /* content must be repainted (on_paint) */

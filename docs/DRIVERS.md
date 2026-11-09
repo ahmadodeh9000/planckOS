@@ -63,8 +63,9 @@ raises IRQ0 every time it reaches zero. `timer_install()` writes command
 writes the divisor `1193182 / 100` to port `0x40` and installs the IRQ0
 handler.
 
-The handler only does `ticks++`. Keep IRQ handlers this small: they run
-with interrupts off. `ticks` is `volatile` because `sleep_ms()` polls it in
+The handler does `ticks++` and, once every `TIMER_HZ` ticks, pushes an
+`EVENT_TIMER` so the GUI can update its clock. Keep IRQ handlers this small:
+they run with interrupts off. `ticks` is `volatile` because `sleep_ms()` polls it in
 a loop while an interrupt changes it underneath.
 
 **Key functions.**

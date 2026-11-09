@@ -15,6 +15,7 @@ typedef enum {
     EVENT_MOUSE_MOVE,   /* the pointer moved to (x, y)            */
     EVENT_MOUSE_DOWN,   /* 'button' was pressed at (x, y)         */
     EVENT_MOUSE_UP,     /* 'button' was released at (x, y)        */
+    EVENT_TIMER,        /* another second of uptime has passed    */
 } event_type;
 
 #define MOUSE_BUTTON_LEFT   (1 << 0)

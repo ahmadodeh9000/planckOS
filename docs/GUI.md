@@ -101,6 +101,30 @@ the cursor" trick: the whole frame is redrawn from scratch, so the old
 cursor position simply gets painted over. `surface_put_pixel` clips, so the
 cursor can hang off the right or bottom edge.
 
+## Taskbar — `gui/taskbar.c`
+
+**What it does.** The 28 px bar at the bottom of the screen, from left to
+right: the launcher button, one button per open window, and the uptime
+clock (`HH:MM:SS`).
+
+**How it works.**
+
+- *Window buttons* are listed in the order the windows were opened. Each
+  window gets an increasing `id` in `window_create`, and the taskbar sorts
+  by it. That keeps buttons from jumping around when z-order changes. The
+  focused window's button is highlighted, and clicking a button raises its
+  window.
+- *Clicks.* `gui_dispatch` offers every mouse press to
+  `taskbar_mouse_down()` first. If the press was on the bar, the taskbar
+  keeps it; otherwise it goes to the window manager. Windows can't be
+  dragged under the bar (`wm_init` gets the screen height minus the bar).
+- *The clock.* The PIT handler pushes an `EVENT_TIMER` once a second. That
+  wakes the main loop, which redraws, and the clock shows
+  `timer_ticks() / TIMER_HZ` as hours, minutes and seconds.
+
+**Known limits.** Buttons don't shrink, so only about five window buttons
+fit at 1024 px.
+
 ## Widgets — `gui/widget.c`
 
 **What it does.** Small helpers for drawing common controls inside a

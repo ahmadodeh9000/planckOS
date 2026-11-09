@@ -4,10 +4,12 @@
  * The PIT counts down from a divisor at 1.193182 MHz and raises IRQ0 each
  * time it reaches zero. With divisor = PIT_BASE_HZ / TIMER_HZ we get
  * TIMER_HZ interrupts per second. The IRQ handler only increments a
- * counter; uptime and sleeps are computed from that counter.
+ * counter (uptime and sleeps are computed from it) and pushes an
+ * EVENT_TIMER once a second, so the GUI can update its clock.
  */
 #include "drivers/timer.h"
 #include "arch/idt.h"
+#include "gui/event.h"
 
 #define PIT_BASE_HZ         1193182
 #define PIT_CHANNEL0_PORT   0x40
@@ -21,6 +23,10 @@ static volatile uint32_t ticks = 0;
 static void timer_handler(registers_t* regs) {
     (void)regs;
     ticks++;
+    if (ticks % TIMER_HZ == 0) {
+        event_t event = { .type = EVENT_TIMER };
+        event_push(&event);
+    }
 }
 
 void timer_install(void) {

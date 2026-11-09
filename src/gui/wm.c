@@ -145,6 +145,7 @@ window_t* window_create(const char* title, int width, int height) {
     win->surface.width = width;
     win->surface.height = height;
     win->dirty = true;
+    win->id = windows_opened;
 
     int slot = windows_opened++ % CASCADE_SLOTS;
     win->x = CASCADE_START_X + slot * CASCADE_STEP;

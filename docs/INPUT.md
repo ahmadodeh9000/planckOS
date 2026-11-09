@@ -26,6 +26,7 @@ half-finished updates.
 | `EVENT_MOUSE_MOVE` | `x`, `y` | The pointer moved to `(x, y)`. |
 | `EVENT_MOUSE_DOWN` | `x`, `y`, `button` | A button (`MOUSE_BUTTON_LEFT/RIGHT/MIDDLE`) was pressed. |
 | `EVENT_MOUSE_UP` | `x`, `y`, `button` | A button was released. |
+| `EVENT_TIMER` | none | One more second of uptime (pushed by the PIT handler). |
 
 **How it works.** It's a ring buffer: an array plus a `head` (next slot to
 write) and a `tail` (next slot to read). Empty means `head == tail`. Full
