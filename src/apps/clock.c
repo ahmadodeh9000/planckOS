@@ -1,4 +1,8 @@
-
+/*
+ * clock.c - the Clock app: it is an analog clock..
+ * just like that lol
+ * 
+ */
 
 #include "clock.h"
 #include "gui/wm.h"
@@ -37,13 +41,13 @@ static int clock_cos(int i) {
 }
 
 /* drawing hours mark*/
-static void draw_hours_mark(window_t* win, int cx, int cy, int r) {
+static void draw_hours_mark(surface_t* surface, int cx, int cy, int r) {
     for (int i = 0; i < 60; i += 5) {
         int x0 = cx + (r * 85 / 100) * clock_sin(i) / SIN_SCALE;
         int y0 = cy - (r * 85 / 100) * clock_cos(i) / SIN_SCALE;
         int x1 = cx + (r - 4) * clock_sin(i) / SIN_SCALE;
         int y1 = cy - (r - 4) * clock_cos(i) / SIN_SCALE;
-        surface_draw_line(&win->surface, x0, y0, x1, y1, THEME_TEXT);
+        surface_draw_line(surface, x0, y0, x1, y1, THEME_TEXT);
     }
 }
 
@@ -90,7 +94,7 @@ static void clock_paint(window_t* win) {
     get_clock_time(&hour_pos, &minute_pos, &second_pos);
 
     draw_clock_disk(&win->surface,cx,cy,r,CLOCK_THEME);
-    draw_hours_mark(win,cx,cy,r);
+    draw_hours_mark(&win->surface,cx,cy,r);
     
     draw_thick_hand(&win->surface, cx, cy, hour_pos,   r * 50 / 100, THEME_TEXT);
     draw_thick_hand(&win->surface, cx + 1, cy, minute_pos, r * 75 / 100, THEME_TEXT);
