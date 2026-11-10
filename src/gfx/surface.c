@@ -3,6 +3,7 @@
  */
 #include "gfx/surface.h"
 #include "lib/string.h"
+#include "lib/math.h"
 
 #define BYTES_PER_PIXEL 4
 
@@ -56,6 +57,25 @@ void surface_draw_rect(surface_t* s, int x, int y, int w, int h, uint32_t color)
     surface_fill_rect(s, x, y, 1, h, color);
     surface_fill_rect(s, x + w - 1, y, 1, h, color);
 }
+
+void surface_draw_line(surface_t* s, int x0, int y0, int x1, int y1, uint32_t color) {
+    int dx = int_abs(x1 - x0);
+    int dy = -int_abs(y1 - y0);
+    int step_x = x0 < x1 ? 1 : -1;
+    int step_y = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    for (;;) {
+        surface_put_pixel(s, x0, y0, color);
+        if (x0 == x1 && y0 == y1) {
+            break;
+        }
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += step_x; }
+        if (e2 <= dx) { err += dx; y0 += step_y; }
+    }
+}
+
 
 void surface_blit(surface_t* dst, int x, int y, const surface_t* src) {
     rect_t r = { x, y, src->width, src->height };

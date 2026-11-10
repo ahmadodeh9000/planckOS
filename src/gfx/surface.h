@@ -34,6 +34,12 @@ void surface_fill_rect(surface_t* s, int x, int y, int w, int h, uint32_t color)
 /* A 1-pixel outline just inside the rectangle (x, y, w, h). */
 void surface_draw_rect(surface_t* s, int x, int y, int w, int h, uint32_t color);
 
+/* Bresenham's line algorithm: walk from (x0,y0) to (x1,y1) one pixel at a
+   time, using an error term to decide when to step in x, y, or both.
+   Integers only, no division. 
+*/
+void surface_draw_line(surface_t* s, int x0, int y0, int x1, int y1, uint32_t color);
+
 /* Copy all of 'src' onto 'dst' with its top-left corner at (x, y). */
 void surface_blit(surface_t* dst, int x, int y, const surface_t* src);
 
