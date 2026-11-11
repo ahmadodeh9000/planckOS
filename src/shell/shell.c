@@ -51,7 +51,7 @@ static void shell_banner(shell_t* sh) {
 }
 
 static void shell_prompt(shell_t* sh) {
-    console_print(sh->con, "> ");
+    console_print(sh->con, "admin$ ");
 }
 
 /* ---- commands ----------------------------------------------------- */
