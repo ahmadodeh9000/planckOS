@@ -10,6 +10,9 @@
 
 #include "lib/common.h"
 
+#define PROGRAM_BASE    0x2000000   /* 32 MB */
+#define PROGRAM_END     0x3000000   /* 48 MB */
+
 #define ELF_MAGIC       0x464C457F  /* 0x7F 'E' 'L' 'F' as a little-endian uint32 */
 #define ELF_IDENT_SIZE  16
 #define ELF_IDENT_CLASS 4           /* index of the class byte in ident[] */

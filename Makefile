@@ -9,6 +9,7 @@
 #   make run-headless boot without a window; serial output goes to stdout
 #   make disk         create a blank FAT12 disk.img if it does not exist
 #   make programs     build programs/*.c and copy them onto disk.img (mtools)
+#   make asm-test     check the built-in assembler's bytes against NASM
 #   make clean        remove build/
 
 # ---- toolchain ---------------------------------------------------------
@@ -60,7 +61,7 @@ QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
               -drive file=$(DISK),format=raw,index=1,media=disk
 
 # ---- targets -----------------------------------------------------------
-.PHONY: all iso run run-headless disk programs clean
+.PHONY: all iso run run-headless disk programs asm-test clean
 
 all: iso
 
@@ -112,6 +113,21 @@ programs: $(PROGRAMS) $(DISK)
 	    echo "mcopy $$elf -> $(DISK):$$name"; \
 	    MTOOLS_SKIP_CHECK=1 mcopy -o -i $(DISK) $$elf ::$$name || exit 1; \
 	done
+
+# Builds the assembler in src/asm/ for this computer (HOST_CC), assembles
+# tests/asm/encoding.asm with it and with 'nasm -O0', and compares the bytes.
+# tests/asm/host/ supplies lib/string.h from the host's C library.
+HOST_CC  ?= cc
+ASM_TEST := $(BUILD)/asm-test
+
+asm-test:
+	@mkdir -p $(ASM_TEST)
+	$(HOST_CC) -std=c99 -Wall -Wextra -Itests/asm/host -Isrc \
+	    -o $(ASM_TEST)/asm_host tests/asm/asm_host.c $(wildcard src/asm/*.c)
+	$(ASM_TEST)/asm_host tests/asm/encoding.asm $(ASM_TEST)/planck.bin
+	nasm -O0 -f bin -I tests/asm/ -o $(ASM_TEST)/nasm.bin tests/asm/nasm.asm
+	cmp $(ASM_TEST)/planck.bin $(ASM_TEST)/nasm.bin
+	@echo "asm-test: identical to NASM ($$(wc -c < $(ASM_TEST)/nasm.bin | tr -d ' ') bytes)"
 
 $(BUILD)/programs/%.elf: programs/%.c programs/planck.h programs/program.ld
 	@mkdir -p $(dir $@)

@@ -12,9 +12,6 @@
 #include "drivers/serial.h"
 #include "lib/string.h"
 
-#define PROGRAM_BASE    0x2000000   /* 32 MB */
-#define PROGRAM_END     0x3000000   /* 48 MB */
-
 static bool program_area_ready;
 
 /* Keep the PMM from handing out the program area. */
