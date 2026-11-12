@@ -22,6 +22,8 @@
 #define LS_MAX_FILES        512
 #define MAX_FILENAME_LEN    12          /* "NAME.EXT" */
 #define SHELL_LINE_MAX      256
+#define PRINTABLE_FIRST     ' '
+#define PRINTABLE_LAST      '~'
 #define EXEC_MAX_FILE       (1024 * 1024)   /* largest program file 'exec' reads: 1 MB */
 
 struct shell {
@@ -288,7 +290,10 @@ void shell_key(shell_t* sh, char key) {
             sh->length--;
             console_putc(sh->con, '\b');
         }
-    } else if (sh->length < SHELL_LINE_MAX - 1) {
+    } else if (key >= PRINTABLE_FIRST && key <= PRINTABLE_LAST &&
+               sh->length < SHELL_LINE_MAX - 1) {
+        /* Arrow keys and other KEY_* codes aren't printable: the shell has
+           no line editing beyond backspace, so it ignores them. */
         sh->line[sh->length++] = key;
         console_putc(sh->con, key);
     }

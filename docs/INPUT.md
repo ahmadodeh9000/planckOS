@@ -22,7 +22,7 @@ half-finished updates.
 
 | `type` | Fields used | Meaning |
 |--------|-------------|---------|
-| `EVENT_KEY` | `key` | A key producing this ASCII character was pressed (`'\b'`, `'\n'`, `'\t'` included). |
+| `EVENT_KEY` | `key` | A key was pressed: an ASCII character (`'\b'`, `'\n'`, `'\t'` included), or a `KEY_*` code above `0x7F` for arrows, Home, End and Delete. |
 | `EVENT_MOUSE_MOVE` | `x`, `y` | The pointer moved to `(x, y)`. |
 | `EVENT_MOUSE_DOWN` | `x`, `y`, `button` | A button (`MOUSE_BUTTON_LEFT/RIGHT/MIDDLE`) was pressed. |
 | `EVENT_MOUSE_UP` | `x`, `y`, `button` | A button was released. |
@@ -80,8 +80,8 @@ carries screen coordinates.
 
 ## Known limits
 
-- One keyboard layout (US), and no arrow, function or modifier keys other
-  than Shift.
+- One keyboard layout (US). Arrows, Home, End and Delete arrive as `KEY_*`
+  codes. There are no function keys or modifiers other than Shift.
 - No mouse wheel.
 - Events carry no timestamps. Apps that need timing (like the double-click
   in Files) read `timer_ticks()` when they handle the event.

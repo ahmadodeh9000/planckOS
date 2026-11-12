@@ -193,16 +193,31 @@ The handler:
 It doesn't echo anything. Showing the character is up to whoever reads
 the event.
 
+*Extended keys.* Keys that weren't on the original PC keyboard send two
+bytes: the prefix `0xE0`, then a code. The handler remembers the prefix
+(`extended_pending`) and looks the next byte up in `extended_keys`:
+
+| Second byte | Key | Event `key` |
+|-------------|-----|-------------|
+| `0x48` / `0x50` | Up / Down | `KEY_UP` / `KEY_DOWN` |
+| `0x4B` / `0x4D` | Left / Right | `KEY_LEFT` / `KEY_RIGHT` |
+| `0x47` / `0x4F` | Home / End | `KEY_HOME` / `KEY_END` |
+| `0x53` | Delete | `KEY_DELETE` |
+
+The `KEY_*` codes are above `0x7F`, so code that only accepts printable
+characters (`' '` to `'~'`) ignores them without any change. Extended
+releases, and the "fake Shift" bytes some keyboards send around arrow
+keys (`0xE0 0x2A`), are ignored.
+
 **Key functions.** `keyboard_init()` hooks IRQ1.
 
-**Extending it.** Arrow keys send a `0xE0` prefix byte, then their code
-(`0x48` up, `0x50` down, `0x4B` left, `0x4D` right). Remember that a
-prefix was seen, and push a new event field (e.g. a `KEY_LEFT` constant
-outside the ASCII range). Ctrl and Caps Lock work like Shift: track their
-press and release codes.
+**Extending it.** Another extended key is one more row in
+`extended_keys` plus a `KEY_*` code in `gui/event.h`. Ctrl and Caps Lock
+work like Shift: track their press and release codes.
 
-**Known limits.** US layout only. No Ctrl/Alt/Caps Lock. Extended keys
-(arrows, `0xE0`-prefixed codes) are ignored.
+**Known limits.** US layout only. No Ctrl/Alt/Caps Lock. The numeric
+keypad's arrow keys (the same codes without the `0xE0` prefix) aren't
+mapped.
 
 ## Mouse — `drivers/mouse.c`
 

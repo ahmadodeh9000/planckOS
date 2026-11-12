@@ -26,8 +26,18 @@ typedef struct {
     event_type type;
     int x, y;           /* pointer position (mouse events)        */
     uint8_t button;     /* MOUSE_BUTTON_* (down/up events)        */
-    char key;           /* ASCII character, '\b', '\n', '\t'      */
+    char key;           /* ASCII character, '\b', '\n', '\t', or KEY_* */
 } event_t;
+
+/* Keys without an ASCII character get codes above 0x7F, so code that only
+   wants printable characters (' '..'~') ignores them automatically. */
+#define KEY_UP      ((char)0x80)
+#define KEY_DOWN    ((char)0x81)
+#define KEY_LEFT    ((char)0x82)
+#define KEY_RIGHT   ((char)0x83)
+#define KEY_HOME    ((char)0x84)
+#define KEY_END     ((char)0x85)
+#define KEY_DELETE  ((char)0x86)
 
 /* Add an event. Safe to call from an interrupt handler. If the queue is
    full the event is dropped. */
