@@ -18,9 +18,14 @@ bitmap PMM, paging, a heap, a PS/2 keyboard, ATA PIO, FAT12 and a shell.
 - *Desktop:* window manager (z-order, focus, dragging, close), taskbar with
   a real-time clock (CMOS RTC), launcher menu, widget helpers.
 - *Apps:* Terminal (the same shell as text mode, through console sinks),
-  Files, Notepad, About, Shut down.
+  Files, Notepad (cursor keys, Home/End, line numbers, scrolling), Clock,
+  About, Shut down.
 - *Programs:* an ELF loader and the `exec` command run programs from the
   disk in ring 0 (`EXEC.md`), with `programs/hello.c` as an example.
+- *Assembler:* a two-pass x86 assembler inside the OS (`asm` command,
+  `ASSEMBLER.md`). Its encodings are checked against NASM, and its ELF output
+  runs with `exec`. Write in Notepad, `asm`, `exec`, all without leaving
+  planckOS.
 - *Docs:* this folder.
 
 ## Good next steps
@@ -34,6 +39,9 @@ Roughly from easiest to hardest. Each one says where to start.
 - **Partial redraws.** Keep a "dirty rectangle" in `gui.c` and add
   `fb_present_rect()`, so a mouse move copies a few KB instead of 3 MB.
 - **Delete confirmation** in Files, and a "New" button that opens Notepad.
+- **More assembler instructions.** `adc`, `sbb`, `sar`, `movzx`, `jbe`/`jae`
+  and friends are mostly one row in `mnemonics[]` each (see "How to add an
+  instruction" in `ASSEMBLER.md`).
 
 ### Medium
 
@@ -45,6 +53,10 @@ Roughly from easiest to hardest. Each one says where to start.
 - **Minimize and resize windows.** A `hidden` flag that `wm_draw` skips and
   taskbar buttons toggle, and resizing that reallocates `win->surface`.
 - **Real ACPI shutdown and reboot** (`drivers/power.c`).
+- **Short jumps and `[base + index*scale]` in the assembler.** Short jumps
+  need a size that depends on the distance. A common fix is to assume short,
+  and when a jump turns out too far, make it long and run pass 1 again until
+  nothing changes.
 
 ### Large
 
