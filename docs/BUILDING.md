@@ -9,6 +9,7 @@
 | ISO builder | `i686-elf-grub` (gives `i686-elf-grub-mkrescue`) + `xorriso` | `grub-pc-bin`, `grub-common`, `xorriso`, `mtools` |
 | Emulator | `qemu` | `qemu-system-x86` |
 | FAT tools (for `make disk`) | built in (`hdiutil`, `newfs_msdos`) | `dosfstools` (`mkfs.fat`) |
+| Disk copy (for `make programs`) | `mtools` | `mtools` |
 
 The Makefile uses `i686-elf-gcc` when it is on your `PATH`. Otherwise it falls
 back to the host `gcc` with `-m32 -fno-pic -fno-pie`. Either way, `kernel.c`
@@ -22,9 +23,12 @@ refuses to compile unless the target is 32-bit x86 (`__i386__`).
 | `make run` | Boots the ISO in a QEMU window with `disk.img` as the second IDE disk. Serial output (COM1) goes to your terminal. The RTC starts at your local time (`-rtc base=localtime`). |
 | `make run-headless` | Same as `make run` but without a window. Handy for reading the serial log. |
 | `make disk` | Creates a blank 64 MB FAT12 `disk.img`, but only if it doesn't already exist. |
+| `make programs` | Builds every `programs/*.c` into `build/programs/*.elf` and copies each onto `disk.img` as `NAME.ELF` (see `EXEC.md`). |
 | `make clean` | Deletes `build/`. |
 
-You can attach a different disk with `make run DISK=other.img`.
+You can attach a different disk with `make run DISK=other.img`. The same
+works for `make programs DISK=other.img`, which is handy for trying programs
+on a scratch copy of your disk.
 
 ## How the build works
 

@@ -19,6 +19,8 @@ bitmap PMM, paging, a heap, a PS/2 keyboard, ATA PIO, FAT12 and a shell.
   a real-time clock (CMOS RTC), launcher menu, widget helpers.
 - *Apps:* Terminal (the same shell as text mode, through console sinks),
   Files, Notepad, About, Shut down.
+- *Programs:* an ELF loader and the `exec` command run programs from the
+  disk in ring 0 (`EXEC.md`), with `programs/hello.c` as an example.
 - *Docs:* this folder.
 
 ## Good next steps
@@ -58,9 +60,9 @@ Roughly from easiest to hardest. Each one says where to start.
 - **User mode.** Load the TSS (`ltr`) with a valid `esp0`, mark user pages
   `PAGE_USER`, give each process its own page directory, and enter ring 3
   with `iret`. Programs then talk to the kernel only through `int 0x80`
-  (`arch/syscall.c`), which must check every pointer they pass. Loading
-  programs means an executable format: start with flat binaries read from
-  FAT12, then ELF.
+  (`arch/syscall.c`), which must check every pointer they pass. The ELF
+  loader already exists (`EXEC.md`): what's missing is giving each program
+  its own address space and running it in ring 3 instead of calling it.
 - **A user-space GUI protocol.** Once apps are processes, they can't call
   `window_create` directly. They need system calls to create windows, get
   events and hand over their pixel buffers.

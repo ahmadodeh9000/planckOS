@@ -8,6 +8,7 @@
 #   make run          boot the ISO in QEMU with disk.img attached
 #   make run-headless boot without a window; serial output goes to stdout
 #   make disk         create a blank FAT12 disk.img if it does not exist
+#   make programs     build programs/*.c and copy them onto disk.img (mtools)
 #   make clean        remove build/
 
 # ---- toolchain ---------------------------------------------------------
@@ -45,13 +46,21 @@ ASM_SRCS := boot/boot.s $(shell find src -name '*.s')
 OBJS     := $(patsubst %,$(BUILD)/%.o,$(ASM_SRCS) $(C_SRCS))
 DEPS     := $(OBJS:.o=.d)
 
+# Programs for 'exec': each programs/<name>.c becomes build/programs/<name>.elf,
+# copied to the disk as <NAME>.ELF (so <name> must be at most 8 characters).
+PROG_SRCS    := $(wildcard programs/*.c)
+PROGRAMS     := $(patsubst programs/%.c,$(BUILD)/programs/%.elf,$(PROG_SRCS))
+PROG_CFLAGS  := -std=gnu99 -ffreestanding -fno-stack-protector -fno-builtin \
+                -nostdlib -fno-pic -Wall -Wextra -O2 $(HOST_CFLAGS)
+PROG_LDFLAGS := -T programs/program.ld -Wl,-z,max-page-size=0x1000 $(HOST_LDFLAGS)
+
 # -rtc base=localtime: the guest's CMOS clock shows the host's local time
 # instead of UTC.
 QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
               -drive file=$(DISK),format=raw,index=1,media=disk
 
 # ---- targets -----------------------------------------------------------
-.PHONY: all iso run run-headless disk clean
+.PHONY: all iso run run-headless disk programs clean
 
 all: iso
 
@@ -94,6 +103,19 @@ ifeq ($(shell uname),Darwin)
 else
 	mkfs.fat -F 12 -s $(DISK_SECTORS_PER_CLUSTER) -n PLANCK $@
 endif
+
+# MTOOLS_SKIP_CHECK: mtools otherwise rejects disks whose size isn't a
+# multiple of the classic floppy geometry, which ours needn't be.
+programs: $(PROGRAMS) $(DISK)
+	@for elf in $(PROGRAMS); do \
+	    name=$$(basename $$elf .elf | tr a-z A-Z).ELF; \
+	    echo "mcopy $$elf -> $(DISK):$$name"; \
+	    MTOOLS_SKIP_CHECK=1 mcopy -o -i $(DISK) $$elf ::$$name || exit 1; \
+	done
+
+$(BUILD)/programs/%.elf: programs/%.c programs/planck.h programs/program.ld
+	@mkdir -p $(dir $@)
+	$(CC) $(PROG_CFLAGS) $(PROG_LDFLAGS) -o $@ $<
 
 clean:
 	rm -rf $(BUILD)

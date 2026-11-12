@@ -1,7 +1,8 @@
 # Running programs (ELF)
 
 Files: `src/exec/elf.c`, `src/exec/program.c`, `src/exec/program.s`, the
-`exec` command in `src/shell/shell.c`, and `src/arch/syscall.c`.
+`exec` command in `src/shell/shell.c`, `src/arch/syscall.c`, and the
+example programs in `programs/`.
 
 ## What it does
 
@@ -138,6 +139,59 @@ the machine). `program_call` also saves and restores `ebp`, `ebx`, `esi`
 and `edi`, and resets `esp` even after a normal return, so a program that
 breaks the C calling rules can't corrupt the shell.
 
+## Writing and building a program
+
+Programs live in `programs/`, one `.c` file each. The smallest one is
+`programs/hello.c`:
+
+```c
+#include "planck.h"
+
+int _start(void) {
+    sys_print("Hello from HELLO.ELF!\n");
+    sys_print("I was loaded at ");
+    sys_print_hex((uint32_t)&_start);
+    sys_print("and I talk to the kernel through int 0x80.\n");
+    return 0;
+}
+```
+
+- **`_start` is the entry point**, not `main`: there's no C library to call
+  `main` for you. Its return value is the exit code.
+- **`planck.h`** is the program's whole view of the kernel: `sys_print`,
+  `sys_print_hex` and `sys_exit`, each a few lines of inline assembly that
+  put the call number in `eax` and the argument in `ebx`, then run
+  `int $0x80`. The numbers must match `src/arch/syscall.h`.
+- **No libraries.** No `printf` or `malloc`: only what you write yourself
+  plus the system calls.
+
+**`programs/program.ld`** links the program at `0x2000000`
+(`PROGRAM_BASE`), the start of the program area, and throws away sections
+the loader doesn't need. The linker then records `0x2000000` as each
+segment's `vaddr` and as the entry point, which is exactly what `elf_load`
+checks and uses.
+
+**Build and install:**
+
+```sh
+make programs        # build programs/*.c, copy them onto disk.img
+make run             # then in a Terminal: exec HELLO.ELF
+```
+
+`make programs` compiles each `programs/<name>.c` into
+`build/programs/<name>.elf` with the kernel's freestanding flags plus
+`-fno-pic` (the code must not expect to be moved), links it with
+`program.ld` and `-z max-page-size=0x1000` (otherwise the linker pads the
+file to 64 KB boundaries). It then copies it onto the disk image as
+`<NAME>.ELF` with `mcopy` from mtools, which writes into a FAT image
+without mounting it. Because of FAT12's 8.3 names, `<name>` can be at most
+8 characters. Check what the linker produced with
+`i686-elf-readelf -hl build/programs/hello.elf`: you should see `EXEC`,
+`Intel 80386`, entry `0x2000000` and one `LOAD` segment at `0x02000000`.
+
+To add a program, create `programs/<name>.c` with an `_start` function and
+run `make programs` again.
+
 ## Key functions
 
 | Function | Purpose |
@@ -148,6 +202,22 @@ breaks the C calling rules can't corrupt the shell.
 | `program_console()` | The running program's console (used by `SYS_PRINT`), or `NULL`. |
 | `program_exit(code)` | End the running program (used by `SYS_EXIT`). |
 | `program_crash(vector)` | End the running program after a CPU exception (used by `isr_handler`). |
+
+## How it was tested
+
+- `exec HELLO.ELF` in a Terminal window and in the text-mode shell: the
+  output appears in the console that ran it.
+- A program that calls `sys_exit(7)` returns to the shell with code 7, and
+  its later lines never print. A program that runs `ud2` (an invalid
+  instruction) is reported as crashed, and the OS keeps running.
+- `exec` on a text file, on a missing file, and with no argument fails
+  with a message.
+- Hand-corrupted copies of `HELLO.ELF`, each breaking one field, are all
+  rejected with the right reason in the serial log: a 20-byte file, wrong
+  magic, 64-bit class, `phoff = 0xFFFFFFF0`, `phnum = 0xFFFF`, a segment
+  offset that wraps past 4 GB, a segment aimed at the kernel at 1 MB,
+  `memsz = 0xFFFFFFFF`, `filesz > memsz`, and an entry point inside the
+  kernel. `exec HELLO.ELF` still works afterwards.
 
 ## Known limits
 

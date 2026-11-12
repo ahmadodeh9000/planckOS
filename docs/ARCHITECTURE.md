@@ -21,6 +21,7 @@ src/kernel.c kmain
    console_set_default(vga)     where plain printf() goes
    cpu_init                     GDT, IDT + PIC remap, PIT at 100 Hz, sti
    memory_init                  PMM bitmap -> paging (64 MB identity) -> 16 MB heap
+                                -> program area reserved (elf_init)
    storage_init                 ATA detect -> FAT12 (if a disk is there)
    keyboard_init
    fb_init(mbi)?
@@ -42,6 +43,11 @@ kernel_end +---------------------------+
            | kernel heap, 16 MB        |  kmalloc/kfree, reserved in the PMM
            +---------------------------+
            | free pages                |  pmm_alloc_page()
+0x02000000 +---------------------------+  32 MB
+           | program area, 16 MB       |  where exec loads ELF programs,
+           |                           |  reserved in the PMM (EXEC.md)
+0x03000000 +---------------------------+  48 MB
+           | free pages                |  pmm_alloc_page()
 0x04000000 +---------------------------+  64 MB: end of the identity map
            | free pages (not mapped)   |
 0x08000000 +---------------------------+  end of RAM
@@ -60,6 +66,7 @@ Details: `MEMORY.md`.
 boot/           boot.s (Multiboot header, entry), grub.cfg
 link.ld         where every section goes in memory
 Makefile        build rules, see BUILDING.md
+programs/       example programs for 'exec': hello.c, planck.h, program.ld
 src/
   kernel.c      kmain: brings everything up in order
   arch/         CPU-specific: GDT, IDT/PIC, interrupt stubs, port I/O,
@@ -73,6 +80,7 @@ src/
                 widgets, cursor, theme
   shell/        the command shell (text mode and Terminal app) and its logo
   apps/         terminal, files, notepad, about, and the app list
+  exec/         ELF loader and running programs (see EXEC.md)
 docs/           these pages
 ```
 

@@ -31,7 +31,7 @@ shell), in a fixed order where each step only depends on the ones before it.
    | `serial_init` | COM1 logging first, so every later step can report. |
    | `console_set_default` | Plain `printf` goes to the VGA text screen. |
    | `cpu_init` | GDT, IDT with remapped PIC, PIT timer, then `sti`. |
-   | `memory_init` | PMM from GRUB's memory map, paging, heap. |
+   | `memory_init` | PMM from GRUB's memory map, paging, heap, and the program area for `exec` (`elf_init`). |
    | `storage_init` | ATA detect, and FAT12 if there is a disk. |
    | `keyboard_init` | Key presses become events. |
    | `fb_init` | Graphics if GRUB gave a 32-bit RGB framebuffer: then `mouse_init` and `gui_main_loop()`. Otherwise `shell_run()` on the text screen. |

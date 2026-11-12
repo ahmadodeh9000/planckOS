@@ -26,6 +26,8 @@ subsystems, and `docs/` explains how each one works.
 - **Desktop:** event queue, window manager (z-order, focus, dragging,
   close), taskbar with clock, launcher menu, widget helpers
 - **Apps:** Terminal, Files, Notepad, About, Shut down
+- **Programs:** an ELF loader and an `exec` shell command that run
+  programs from the disk (example: `programs/hello.c`)
 
 ## Build and run
 
@@ -58,6 +60,7 @@ release it.
 | [INPUT](docs/INPUT.md) | The event queue and how input reaches apps |
 | [GUI](docs/GUI.md) | Main loop, window manager, taskbar, launcher, widgets |
 | [APPS](docs/APPS.md) | The built-in apps, and a tutorial for writing your own |
+| [EXEC](docs/EXEC.md) | Loading and running ELF programs, and how to write one |
 | [ROADMAP](docs/ROADMAP.md) | What's done and good next steps |
 
 ## History

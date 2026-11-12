@@ -2,6 +2,7 @@
  * syscall.h - system call numbers for int 0x80.
  *
  * Put the number in eax and the argument in ebx; results come back in eax.
+ * programs/planck.h has the same numbers for programs; keep them in sync.
  */
 #ifndef syscall_h__
 #define syscall_h__
