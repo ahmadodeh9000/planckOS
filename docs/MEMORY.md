@@ -127,6 +127,8 @@ against double frees or overruns.
 | `0x00000000 - 0x000FFFFF` | BIOS, VGA text buffer (`0xB8000`), ROMs. Reserved. |
 | `0x00100000 - kernel_end` | Kernel image: code, data, bss (PMM bitmap, page tables, boot stack). |
 | `kernel_end - +16 MB` | Kernel heap. Reserved in the PMM. |
-| `... - 64 MB` | Free pages for `pmm_alloc_page()`. Identity-mapped. |
+| `... - 32 MB` | Free pages for `pmm_alloc_page()`. Identity-mapped. |
+| `0x02000000 - 0x02FFFFFF` (32-48 MB) | Program area: where `exec` loads ELF programs. Reserved in the PMM by `elf_init()`. See `EXEC.md`. |
+| `48 MB - 64 MB` | Free pages for `pmm_alloc_page()`. Identity-mapped. |
 | `64 MB - end of RAM` | Free pages, not mapped yet. |
 | `0xFD000000 - +3 MB` (QEMU) | Linear framebuffer (video memory, not RAM). Identity-mapped by `fb_init()` with `paging_map()`. |

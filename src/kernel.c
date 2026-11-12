@@ -22,6 +22,7 @@
 #include "drivers/mouse.h"
 #include "gui/gui.h"
 #include "shell/shell.h"
+#include "exec/elf.h"
 
 #if !defined(__i386__)
 #error "planckOS must be built for 32-bit x86 (i686-elf-gcc or gcc -m32)"
@@ -41,6 +42,7 @@ static void memory_init(multiboot_info_t* mbi) {
     pmm_init(mbi);
     paging_init();
     heap_init();
+    elf_init();
 }
 
 static void log_framebuffer(multiboot_info_t* mbi) {
