@@ -76,32 +76,59 @@ rows than `TERM_ROWS` and drawing a window onto them.
 disk. Launching it from the menu gives an empty, unnamed document. The
 Files app opens existing files in it (`notepad_open_file(name)`).
 
+| Key | Does |
+|-----|------|
+| Arrows | Move the cursor. Up/Down keep the column if the line is long enough, otherwise go to the line's end. |
+| Home / End | Start / end of the current line. |
+| Backspace / Delete | Delete the character before / after the cursor (at a line end, that joins two lines). |
+| Enter | Split the line at the cursor. |
+| Tab | Insert 4 spaces. |
+| any printable key | Insert it at the cursor. |
+
+The toolbar shows the cursor position as `Ln 3, Col 7` (both counted from
+1), and a gutter on the left shows the line numbers.
+
 **How it works.**
 
-- *State.* The text lives in a fixed buffer in the app's `notepad_state`,
-  with its length. A `textbox_t` holds the file name, and `focus` says
-  whether typing goes to the name or the text. Clicking either one moves
-  the focus there.
-- *Editing.* Typing appends at the end. Enter adds `'\n'` and backspace
-  removes the last character. In the name box, Enter saves.
-- *Drawing.* `text_layout()` walks the text the way it appears on screen,
-  starting a new row on `'\n'` or when a row is full (wrapping). It runs
-  twice: once only to count rows, then to draw. If there are more rows than
-  fit, drawing starts further down so the end of the text (where you type)
-  stays visible.
+- *One flat buffer.* The text is a single `char` array with `'\n'` between
+  lines, and the cursor is just an index into it (`n->cursor`). Lines and
+  columns aren't stored anywhere. They're worked out by scanning the
+  buffer when needed: `line_start`/`line_end` walk back or forward to the
+  nearest `'\n'`, `cursor_position` counts the `'\n'`s before the cursor,
+  and `index_at(line, col)` goes the other way, clamping to the line's
+  end. With 8 KB at most, scanning is instant, and editing stays simple.
+- *Inserting and deleting.* `text_insert` uses `memmove` to shift
+  everything after the cursor to the right, then copies the new characters
+  into the gap. `text_delete` shifts the rest left by one. It has to be
+  `memmove`, not `memcpy`: the source and destination overlap, and a plain
+  forward copy would smear the first character across the rest.
+- *Scrolling.* `first_line`/`first_col` are the top-left of the view.
+  After every key, `scroll_to_cursor` moves them just enough to keep the
+  cursor visible. Horizontally, it goes back to column 0 whenever the
+  cursor's column fits without scrolling, so short lines aren't shown
+  shifted after you leave a long one. All lines scroll sideways together,
+  because lines don't wrap.
+- *Drawing.* `draw_text` walks the buffer once, counting lines and
+  columns, and draws only characters inside the view. `draw_gutter` prints
+  the visible line numbers right-aligned, and `draw_cursor` draws a 2 px bar
+  where the cursor is.
+- *Focus.* A `textbox_t` holds the file name, and `focus` says whether keys
+  go to the name or to the text. Clicking either one moves the focus there.
+  In the name box, Enter saves.
 - *Loading.* `fat12_read` is asked for one byte more than the 8 KB buffer.
   If it gets that byte, the file was too big, and Notepad says only the
   first 8 KB were loaded.
 - *Saving.* `fat12_write(name, text, length)`. The result is shown next to
   the Save button, and the window title changes to the file name.
 
-**Extending it.** An insertion point (an index into `text`) plus arrow key
-events would allow editing in the middle. Insert and delete would then
-shift the rest of the buffer with a loop or `memmove`.
+**Extending it.** Clicking to place the cursor would turn the click's
+pixel position into a line and column (`(y - TEXT_Y) / FONT_HEIGHT +
+first_line`, and the same for x), then call `index_at`. Up/Down could
+remember the column you started from, so moving through a short line
+doesn't lose it.
 
-**Known limits.** You can only edit at the end (no cursor movement: the
-keyboard driver doesn't report arrow keys yet). No scrolling back to
-earlier lines in long files. 8 KB maximum.
+**Known limits.** 8 KB maximum. No undo, no selection, no syntax
+highlighting, no line wrapping. Lines over 9999 don't fit the gutter.
 
 ## Files — `apps/files.c`
 

@@ -29,9 +29,8 @@ Roughly from easiest to hardest. Each one says where to start.
 
 ### Small
 
-- **Arrow keys and an editing cursor.** Decode `0xE0`-prefixed scan codes
-  in `keyboard.c` (see `DRIVERS.md`), add key constants outside ASCII, then
-  give Notepad and `widget_textbox` an insertion point.
+- **An editing cursor in text boxes.** Notepad has one now. `widget_textbox`
+  could get the same insertion point and arrow keys.
 - **Partial redraws.** Keep a "dirty rectangle" in `gui.c` and add
   `fb_present_rect()`, so a mouse move copies a few KB instead of 3 MB.
 - **Delete confirmation** in Files, and a "New" button that opens Notepad.

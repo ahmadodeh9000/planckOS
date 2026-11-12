@@ -107,3 +107,18 @@ int memcmp(const void* a, const void* b, size_t count) {
     }
     return 0;
 }
+
+void* memmove(void* dest, const void* src, size_t count) {
+    uint8_t* d = dest;
+    const uint8_t* s = src;
+
+    if (d <= s || d >= s + count) {
+        return memcpy(dest, src, count);    /* a forward copy is safe */
+    }
+    /* dest starts inside src: copy from the end, so every byte is read
+       before it is overwritten. */
+    while (count--) {
+        d[count] = s[count];
+    }
+    return dest;
+}
