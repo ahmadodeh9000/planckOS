@@ -14,6 +14,7 @@
 #define SYS_PRINT       0
 #define SYS_EXIT        3
 #define SYS_PRINT_HEX   4
+#define SYS_PRINT_NUMBER 5
 
 /* Print 'text' in the Terminal that ran the program. */
 static inline void sys_print(const char* text) {
@@ -23,6 +24,11 @@ static inline void sys_print(const char* text) {
 /* Print 'value' as hex, followed by a newline. */
 static inline void sys_print_hex(uint32_t value) {
     asm volatile("int $0x80" :: "a"(SYS_PRINT_HEX), "b"(value) : "memory");
+}
+
+/* Print 'value' in decimal (no newline). */
+static inline void sys_print_number(int32_t value) {
+    asm volatile("int $0x80" :: "a"(SYS_PRINT_NUMBER), "b"(value) : "memory");
 }
 
 /* End the program right away with 'code'; the shell reports non-zero codes.

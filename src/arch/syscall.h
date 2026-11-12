@@ -14,6 +14,7 @@
 #define SYS_FREE        2
 #define SYS_EXIT        3       /* ebx = exit code */
 #define SYS_PRINT_HEX   4
+#define SYS_PRINT_NUMBER 5      /* ebx as a signed decimal, no newline */
 
 void syscall_handler(registers_t* regs);
 

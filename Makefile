@@ -8,7 +8,8 @@
 #   make run          boot the ISO in QEMU with disk.img attached
 #   make run-headless boot without a window; serial output goes to stdout
 #   make disk         create a blank FAT12 disk.img if it does not exist
-#   make programs     build programs/*.c and copy them onto disk.img (mtools)
+#   make programs     build programs/*.c and copy them, plus the programs/*.asm
+#                     examples, onto disk.img (mtools)
 #   make asm-test     check the built-in assembler's bytes against NASM
 #   make clean        remove build/
 
@@ -49,7 +50,10 @@ DEPS     := $(OBJS:.o=.d)
 
 # Programs for 'exec': each programs/<name>.c becomes build/programs/<name>.elf,
 # copied to the disk as <NAME>.ELF (so <name> must be at most 8 characters).
+# The assembly examples programs/*.asm are copied as they are, as <NAME>.ASM,
+# for the built-in 'asm' command.
 PROG_SRCS    := $(wildcard programs/*.c)
+PROG_ASM     := $(wildcard programs/*.asm)
 PROGRAMS     := $(patsubst programs/%.c,$(BUILD)/programs/%.elf,$(PROG_SRCS))
 PROG_CFLAGS  := -std=gnu99 -ffreestanding -fno-stack-protector -fno-builtin \
                 -nostdlib -fno-pic -Wall -Wextra -O2 $(HOST_CFLAGS)
@@ -108,10 +112,10 @@ endif
 # MTOOLS_SKIP_CHECK: mtools otherwise rejects disks whose size isn't a
 # multiple of the classic floppy geometry, which ours needn't be.
 programs: $(PROGRAMS) $(DISK)
-	@for elf in $(PROGRAMS); do \
-	    name=$$(basename $$elf .elf | tr a-z A-Z).ELF; \
-	    echo "mcopy $$elf -> $(DISK):$$name"; \
-	    MTOOLS_SKIP_CHECK=1 mcopy -o -i $(DISK) $$elf ::$$name || exit 1; \
+	@for file in $(PROGRAMS) $(PROG_ASM); do \
+	    name=$$(basename $$file | tr a-z A-Z); \
+	    echo "mcopy $$file -> $(DISK):$$name"; \
+	    MTOOLS_SKIP_CHECK=1 mcopy -o -i $(DISK) $$file ::$$name || exit 1; \
 	done
 
 # Builds the assembler in src/asm/ for this computer (HOST_CC), assembles

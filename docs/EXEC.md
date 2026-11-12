@@ -159,7 +159,8 @@ int _start(void) {
 - **`_start` is the entry point**, not `main`: there's no C library to call
   `main` for you. Its return value is the exit code.
 - **`planck.h`** is the program's whole view of the kernel: `sys_print`,
-  `sys_print_hex` and `sys_exit`, each a few lines of inline assembly that
+  `sys_print_hex`, `sys_print_number` and `sys_exit`, each a few lines of
+  inline assembly that
   put the call number in `eax` and the argument in `ebx`, then run
   `int $0x80`. The numbers must match `src/arch/syscall.h`.
 - **No libraries.** No `printf` or `malloc`: only what you write yourself
@@ -190,7 +191,9 @@ without mounting it. Because of FAT12's 8.3 names, `<name>` can be at most
 `Intel 80386`, entry `0x2000000` and one `LOAD` segment at `0x02000000`.
 
 To add a program, create `programs/<name>.c` with an `_start` function and
-run `make programs` again.
+run `make programs` again. You can also write programs in assembly inside
+planckOS itself and turn them into ELF files with the `asm` command (see
+`ASSEMBLER.md`).
 
 ## Key functions
 

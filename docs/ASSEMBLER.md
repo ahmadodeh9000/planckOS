@@ -6,7 +6,8 @@ Files: `src/asm/` (`lexer.c`, `parser.c`, `encoder.c`, `assembler.c`,
 ## What it does
 
 Turns NASM-style 32-bit x86 assembly into a planckOS program: an ELF file
-that `exec` can run (see `EXEC.md`).
+that `exec` can run (see `EXEC.md`). It runs inside planckOS, so you can
+write a program in Notepad, assemble it and run it without leaving the OS.
 
 ```
 asm_assemble(source, length, out, capacity)
@@ -18,6 +19,41 @@ The output is one `PT_LOAD` segment covering the whole file, loaded at
 `PROGRAM_BASE`. The 84 bytes of headers come first, so the first
 instruction lands at `ASM_ORIGIN` = `0x2000054`. Execution starts at the
 label `_start` if the file has one, otherwise at the first instruction.
+
+## Using it in planckOS
+
+In a Terminal:
+
+```
+admin$ asm LOOP.ASM LOOP.ELF
+asm: wrote LOOP.ELF (128 bytes)
+admin$ exec LOOP.ELF
+1
+2
+...
+```
+
+`asm <source> <program>` (in `shell/shell.c`) reads the source file (up
+to 64 KB), assembles it into a 64 KB buffer, and writes the program with
+`fat12_write`. If something is wrong, nothing is written, and you get the
+line and the reason:
+
+```
+admin$ asm NOTES.TXT X.ELF
+asm: NOTES.TXT line 1: unexpected character: !
+```
+
+Two examples come with planckOS in `programs/`, and `make programs`
+copies them onto the disk as `HELLO.ASM` and `LOOP.ASM`:
+
+- **`hello.asm`** prints a line with `SYS_PRINT` and returns.
+- **`loop.asm`** prints 1 to 10 with `SYS_PRINT_NUMBER`, using `inc`,
+  `cmp` and `jle` for the loop. `int 0x80` keeps every register except
+  `eax` (when a call returns a value), so `ecx` survives the calls.
+
+Programs talk to the kernel with `int 0x80`: the call number in `eax`,
+the argument in `ebx` (see the table in `INTERRUPTS.md`). A program ends
+with `ret`, and `eax` is its exit code.
 
 ## Syntax
 

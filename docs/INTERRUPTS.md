@@ -26,6 +26,7 @@ registers:
 | 2 | `SYS_FREE` | `kfree(ebx)`. |
 | 3 | `SYS_EXIT` | End the running program with exit code `ebx` and return to the shell. |
 | 4 | `SYS_PRINT_HEX` | Print `ebx` as hex, like `SYS_PRINT`. |
+| 5 | `SYS_PRINT_NUMBER` | Print `ebx` as a signed decimal number, without a newline. |
 
 *Where output goes.* Before calling a program, `exec` records the
 console it was typed in (`program_run(entry, console)`).

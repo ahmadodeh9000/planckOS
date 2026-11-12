@@ -32,6 +32,15 @@ static void syscall_print_hex(uint32_t value) {
     }
 }
 
+static void syscall_print_number(int32_t value) {
+    console_t* con = program_console();
+    if (con) {
+        console_printf(con, "%d", value);
+    } else {
+        printf("%d", value);
+    }
+}
+
 void syscall_handler(registers_t* regs) {
     switch (regs->eax) {
         case SYS_PRINT:
@@ -39,6 +48,9 @@ void syscall_handler(registers_t* regs) {
             break;
         case SYS_PRINT_HEX:
             syscall_print_hex(regs->ebx);
+            break;
+        case SYS_PRINT_NUMBER:
+            syscall_print_number((int32_t)regs->ebx);
             break;
         case SYS_MALLOC:
             regs->eax = (uint32_t)kmalloc(regs->ebx);

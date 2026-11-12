@@ -66,7 +66,9 @@ Details: `MEMORY.md`.
 boot/           boot.s (Multiboot header, entry), grub.cfg
 link.ld         where every section goes in memory
 Makefile        build rules, see BUILDING.md
-programs/       example programs for 'exec': hello.c, planck.h, program.ld
+programs/       example programs for 'exec': hello.c, planck.h, program.ld,
+                and hello.asm, loop.asm for the built-in assembler
+tests/asm/      'make asm-test': compares the assembler's bytes with NASM's
 src/
   kernel.c      kmain: brings everything up in order
   arch/         CPU-specific: GDT, IDT/PIC, interrupt stubs, port I/O,
@@ -81,6 +83,7 @@ src/
   shell/        the command shell (text mode and Terminal app) and its logo
   apps/         terminal, files, notepad, about, and the app list
   exec/         ELF loader and running programs (see EXEC.md)
+  asm/          the x86 assembler: lexer, parser, encoder (see ASSEMBLER.md)
 docs/           these pages
 ```
 

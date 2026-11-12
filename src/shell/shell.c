@@ -16,6 +16,7 @@
 #include "arch/idt.h"
 #include "exec/elf.h"
 #include "exec/program.h"
+#include "asm/asm.h"
 #include "lib/string.h"
 
 #define CAT_BUF_SIZE        (512 * 16)  /* largest file 'cat' can show: 8 KB */
@@ -25,6 +26,9 @@
 #define PRINTABLE_FIRST     ' '
 #define PRINTABLE_LAST      '~'
 #define EXEC_MAX_FILE       (1024 * 1024)   /* largest program file 'exec' reads: 1 MB */
+#define ASM_MAX_SOURCE      (64 * 1024)     /* largest source file 'asm' reads */
+#define ASM_MAX_OUTPUT      (64 * 1024)     /* largest program 'asm' writes */
+#define KB                  1024
 
 struct shell {
     console_t* con;
@@ -88,6 +92,7 @@ static void cmd_help(shell_t* sh, const char* args) {
         "  write <file> <txt> - write text to file\n"
         "  del <file>         - delete a file\n"
         "  exec <file>        - run an ELF program\n"
+        "  asm <in> <out>     - assemble <in> into the program <out>\n"
         "  quit               - shutdown the os\n"
         "  help               - show this message\n");
 }
@@ -190,25 +195,26 @@ static void cmd_del(shell_t* sh, const char* args) {
     }
 }
 
-/* Read a whole program file into a new kmalloc'd buffer. On failure,
-   print why and return NULL. */
-static uint8_t* shell_read_program(shell_t* sh, const char* name, uint32_t* size) {
+/* Read a whole file of at most 'limit' bytes into a new kmalloc'd buffer.
+   On failure, print why (prefixed with 'command') and return NULL. */
+static uint8_t* shell_read_file(shell_t* sh, const char* command, const char* name,
+                                uint32_t limit, uint32_t* size) {
     /* One byte more than the limit, to notice files that are too big. */
-    uint8_t* image = kmalloc(EXEC_MAX_FILE + 1);
-    if (!image) {
-        console_print(sh->con, "exec: out of memory\n");
+    uint8_t* data = kmalloc(limit + 1);
+    if (!data) {
+        console_printf(sh->con, "%s: out of memory\n", command);
         return NULL;
     }
 
-    fat12_status status = fat12_read(name, image, EXEC_MAX_FILE + 1, size);
+    fat12_status status = fat12_read(name, data, limit + 1, size);
     if (status != FAT12_OK) {
-        console_printf(sh->con, "exec: %s: %s\n", fat12_status_message(status), name);
-    } else if (*size > EXEC_MAX_FILE) {
-        console_printf(sh->con, "exec: %s is too big (the limit is 1 MB)\n", name);
+        console_printf(sh->con, "%s: %s: %s\n", command, fat12_status_message(status), name);
+    } else if (*size > limit) {
+        console_printf(sh->con, "%s: %s is too big (the limit is %u KB)\n", command, name, limit / KB);
     } else {
-        return image;
+        return data;
     }
-    kfree(image);
+    kfree(data);
     return NULL;
 }
 
@@ -219,7 +225,7 @@ static void cmd_exec(shell_t* sh, const char* args) {
         return;
     }
     uint32_t size;
-    uint8_t* image = shell_read_program(sh, args, &size);
+    uint8_t* image = shell_read_file(sh, "exec", args, EXEC_MAX_FILE, &size);
     if (!image) {
         return;
     }
@@ -241,6 +247,63 @@ static void cmd_exec(shell_t* sh, const char* args) {
     }
 }
 
+/* Copy the first word of 'args' into 'word' (at most max - 1 characters)
+   and return what follows it. Returns NULL if the word is too long. */
+static const char* split_word(const char* args, char* word, uint32_t max) {
+    uint32_t length = 0;
+
+    while (args[length] && args[length] != ' ') {
+        length++;
+    }
+    if (length >= max) {
+        return NULL;
+    }
+    memcpy(word, args, length);
+    word[length] = '\0';
+    return skip_spaces(args + length);
+}
+
+/* Assemble 'source' and write the program to 'out_name'. */
+static void shell_assemble(shell_t* sh, const char* in_name, const char* out_name,
+                           const char* source, uint32_t size) {
+    uint8_t* program = kmalloc(ASM_MAX_OUTPUT);
+    if (!program) {
+        console_print(sh->con, "asm: out of memory\n");
+        return;
+    }
+    asm_result_t result = asm_assemble(source, size, program, ASM_MAX_OUTPUT);
+    if (!result.ok) {
+        console_printf(sh->con, "asm: %s line %d: %s\n", in_name, result.line, result.message);
+    } else {
+        fat12_status status = fat12_write(out_name, program, result.size);
+        if (status == FAT12_OK) {
+            console_printf(sh->con, "asm: wrote %s (%u bytes)\n", out_name, result.size);
+        } else {
+            console_printf(sh->con, "asm: %s: %s\n", fat12_status_message(status), out_name);
+        }
+    }
+    kfree(program);
+}
+
+/* asm <in.asm> <out.elf>: assemble a source file into a program. */
+static void cmd_asm(shell_t* sh, const char* args) {
+    char in_name[FAT12_NAME_MAX];
+    const char* rest = split_word(args, in_name, FAT12_NAME_MAX);
+    char out_name[FAT12_NAME_MAX];
+    const char* end = rest ? split_word(rest, out_name, FAT12_NAME_MAX) : NULL;
+
+    if (!end || !in_name[0] || !out_name[0] || *end) {
+        console_print(sh->con, "Usage: asm <source> <program>  (names up to 12 characters)\n");
+        return;
+    }
+    uint32_t size;
+    uint8_t* source = shell_read_file(sh, "asm", in_name, ASM_MAX_SOURCE, &size);
+    if (source) {
+        shell_assemble(sh, in_name, out_name, (const char*)source, size);
+        kfree(source);
+    }
+}
+
 static void cmd_quit(shell_t* sh, const char* args) {
     (void)sh;
     (void)args;
@@ -259,6 +322,7 @@ static const shell_command commands[] = {
     { "write", cmd_write },
     { "del",   cmd_del   },
     { "exec",  cmd_exec  },
+    { "asm",   cmd_asm   },
 };
 
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
