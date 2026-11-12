@@ -4,8 +4,9 @@ The CPU-level setup lives in `src/arch/`.
 
 ## System calls — `arch/syscall.c`
 
-**What it does.** Lets code call into the kernel with `int 0x80`, which is
-how future user-mode programs will ask for services.
+**What it does.** Lets programs started with `exec` (see `EXEC.md`) call
+into the kernel with `int 0x80`. Future user-mode programs will use the
+same door.
 
 **How it works.** IDT entry 128 (`0x80`) is installed with DPL 3
 (`type_attributes = 0xEE`), so ring-3 code is allowed to trigger it. The
@@ -20,11 +21,23 @@ registers:
 
 | Number | Name | Effect |
 |--------|------|--------|
-| 0 | `SYS_PRINT` | Print the string at `ebx`. |
+| 0 | `SYS_PRINT` | Print the string at `ebx` in the console of the Terminal that ran the program. |
 | 1 | `SYS_MALLOC` | `eax = kmalloc(ebx)`. |
 | 2 | `SYS_FREE` | `kfree(ebx)`. |
-| 3 | `SYS_EXIT` | Print "Process ended" and halt. |
-| 4 | `SYS_PRINT_HEX` | Print `ebx` as hex. |
+| 3 | `SYS_EXIT` | End the running program with exit code `ebx` and return to the shell. |
+| 4 | `SYS_PRINT_HEX` | Print `ebx` as hex, like `SYS_PRINT`. |
+
+*Where output goes.* Before calling a program, `exec` records the
+console it was typed in (`program_run(entry, console)`).
+`program_console()` returns it while the program runs, so `SYS_PRINT` from a
+program started in a Terminal window shows up in that window. Outside a
+program, the output goes to the default console (`printf`).
+
+*Ending a program from inside a system call.* `SYS_EXIT` can't simply
+return: it runs deep inside the interrupt stub, called from the program.
+`program_exit()` jumps straight back to where `exec` called the program
+instead (see "How a program ends" in `EXEC.md`). If no program is running,
+it logs that and returns.
 
 Return values work by writing to `regs->eax`. The stub's `popa` loads the
 saved registers back, so the caller sees the new `eax`.
@@ -34,7 +47,8 @@ saved registers back, so the caller sees the new `eax`.
 before using it.
 
 **Known limits.** Everything still runs in ring 0, so no call is protected
-yet. `SYS_EXIT` halts the whole machine.
+yet, and pointer arguments aren't checked: a bad pointer in `SYS_PRINT` is
+only caught if it causes a CPU exception.
 
 ## GDT and TSS — `arch/gdt.c`
 
@@ -79,7 +93,7 @@ vectors, and routes hardware IRQs to driver handlers.
 
 | Vectors | Source | Handled by |
 |---------|--------|------------|
-| 0-31 | CPU exceptions (divide error, page fault, ...) | `isr_handler`: logs to serial, prints the name and halts |
+| 0-31 | CPU exceptions (divide error, page fault, ...) | `isr_handler`: logs to serial. If an `exec`'d program is running, only that program is ended (`program_crash`). Otherwise prints the name and halts. |
 | 32-47 | Hardware IRQ 0-15 via the PICs | `irq_handler`: calls the registered driver handler, then sends EOI |
 | 128 (`0x80`) | `int 0x80` system calls | `isr_handler` → `syscall_handler` |
 
@@ -107,11 +121,13 @@ on the slave and the master.
 |----------|---------|
 | `idt_init()` | Remap the PICs, fill the IDT, `lidt`. |
 | `irq_install_handler(irq, fn)` | Run `fn(regs)` whenever IRQ `irq` fires. |
+| `idt_exception_name(vector)` | The name of a CPU exception, e.g. "Invalid Opcode". |
 
 **Extending it.** For a new device IRQ, write a handler and call
 `irq_install_handler`. The handler should only read the device and record
 what happened (a counter, a queue entry). It runs with interrupts disabled,
 so don't draw or do slow work in it.
 
-**Known limits.** No spurious-IRQ (IRQ 7/15) detection. Exceptions always
-halt, so page faults can't be handled yet.
+**Known limits.** No spurious-IRQ (IRQ 7/15) detection. An exception in
+the kernel itself halts the machine. Page faults can't be handled (nothing
+is ever paged in on demand).

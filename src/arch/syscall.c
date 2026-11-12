@@ -3,18 +3,42 @@
  *
  * Writing to regs->eax sets the return value: the stub restores registers
  * from this struct before iretd.
+ *
+ * Output from a running program goes to the console of the Terminal (or
+ * text screen) that started it; outside a program it goes to the default
+ * console.
  */
 #include "arch/syscall.h"
+#include "exec/program.h"
+#include "drivers/serial.h"
 #include "lib/console.h"
 #include "mm/kmalloc.h"
+
+static void syscall_print(const char* text) {
+    console_t* con = program_console();
+    if (con) {
+        console_print(con, text);
+    } else {
+        printf("%s", text);
+    }
+}
+
+static void syscall_print_hex(uint32_t value) {
+    console_t* con = program_console();
+    if (con) {
+        console_printf(con, "%x\n", value);
+    } else {
+        printf("%x\n", value);
+    }
+}
 
 void syscall_handler(registers_t* regs) {
     switch (regs->eax) {
         case SYS_PRINT:
-            printf((char*)regs->ebx);
+            syscall_print((const char*)regs->ebx);
             break;
         case SYS_PRINT_HEX:
-            printf("%x\n", regs->ebx);
+            syscall_print_hex(regs->ebx);
             break;
         case SYS_MALLOC:
             regs->eax = (uint32_t)kmalloc(regs->ebx);
@@ -23,8 +47,11 @@ void syscall_handler(registers_t* regs) {
             kfree((void*)regs->ebx);
             break;
         case SYS_EXIT:
-            printf("Process ended\n");
-            for (;;) asm volatile("hlt");
+            /* Ends the program and returns to whoever started it; only
+               comes back here if no program is running. */
+            program_exit(regs->ebx);
+            serial_printf("syscall: SYS_EXIT with no program running\n");
+            break;
         default:
             break;
     }

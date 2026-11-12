@@ -13,12 +13,16 @@
 #include "mm/kmalloc.h"
 #include "drivers/power.h"
 #include "drivers/rtc.h"
+#include "arch/idt.h"
+#include "exec/elf.h"
+#include "exec/program.h"
 #include "lib/string.h"
 
 #define CAT_BUF_SIZE        (512 * 16)  /* largest file 'cat' can show: 8 KB */
 #define LS_MAX_FILES        512
 #define MAX_FILENAME_LEN    12          /* "NAME.EXT" */
 #define SHELL_LINE_MAX      256
+#define EXEC_MAX_FILE       (1024 * 1024)   /* largest program file 'exec' reads: 1 MB */
 
 struct shell {
     console_t* con;
@@ -81,6 +85,7 @@ static void cmd_help(shell_t* sh, const char* args) {
         "  cat <file>         - print file contents\n"
         "  write <file> <txt> - write text to file\n"
         "  del <file>         - delete a file\n"
+        "  exec <file>        - run an ELF program\n"
         "  quit               - shutdown the os\n"
         "  help               - show this message\n");
 }
@@ -183,6 +188,57 @@ static void cmd_del(shell_t* sh, const char* args) {
     }
 }
 
+/* Read a whole program file into a new kmalloc'd buffer. On failure,
+   print why and return NULL. */
+static uint8_t* shell_read_program(shell_t* sh, const char* name, uint32_t* size) {
+    /* One byte more than the limit, to notice files that are too big. */
+    uint8_t* image = kmalloc(EXEC_MAX_FILE + 1);
+    if (!image) {
+        console_print(sh->con, "exec: out of memory\n");
+        return NULL;
+    }
+
+    fat12_status status = fat12_read(name, image, EXEC_MAX_FILE + 1, size);
+    if (status != FAT12_OK) {
+        console_printf(sh->con, "exec: %s: %s\n", fat12_status_message(status), name);
+    } else if (*size > EXEC_MAX_FILE) {
+        console_printf(sh->con, "exec: %s is too big (the limit is 1 MB)\n", name);
+    } else {
+        return image;
+    }
+    kfree(image);
+    return NULL;
+}
+
+/* exec <file>: load an ELF program and run it until it ends. */
+static void cmd_exec(shell_t* sh, const char* args) {
+    if (!*args) {
+        console_print(sh->con, "Usage: exec <file>\n");
+        return;
+    }
+    uint32_t size;
+    uint8_t* image = shell_read_program(sh, args, &size);
+    if (!image) {
+        return;
+    }
+
+    uint32_t entry = elf_load(image, size);
+    kfree(image);       /* the program now lives in the program area */
+    if (!entry) {
+        console_printf(sh->con, "exec: %s is not a valid planckOS program "
+                                "(the serial log says why)\n", args);
+        return;
+    }
+
+    program_result_t result = program_run(entry, sh->con);
+    if (result.crashed) {
+        console_printf(sh->con, "exec: %s crashed: %s\n", args,
+                       idt_exception_name(result.exception));
+    } else if (result.exit_code != 0) {
+        console_printf(sh->con, "exec: %s exited with code %u\n", args, result.exit_code);
+    }
+}
+
 static void cmd_quit(shell_t* sh, const char* args) {
     (void)sh;
     (void)args;
@@ -200,6 +256,7 @@ static const shell_command commands[] = {
     { "cat",   cmd_cat   },
     { "write", cmd_write },
     { "del",   cmd_del   },
+    { "exec",  cmd_exec  },
 };
 
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))

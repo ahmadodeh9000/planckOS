@@ -26,4 +26,7 @@ typedef void (*irq_handler_t)(registers_t* regs);
 void idt_init(void);
 void irq_install_handler(int irq, irq_handler_t handler);
 
+/* Human-readable name of CPU exception 'vector' (0-31). */
+const char* idt_exception_name(uint32_t vector);
+
 #endif

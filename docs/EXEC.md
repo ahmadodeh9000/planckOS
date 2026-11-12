@@ -1,11 +1,14 @@
 # Running programs (ELF)
 
-Files: `src/exec/elf.c`, `src/exec/elf.h`.
+Files: `src/exec/elf.c`, `src/exec/program.c`, `src/exec/program.s`, the
+`exec` command in `src/shell/shell.c`, and `src/arch/syscall.c`.
 
 ## What it does
 
-Loads a program stored as a 32-bit ELF executable into memory, so the
-kernel can jump to it.
+Runs programs stored on the FAT12 disk as 32-bit ELF executables. Typing
+`exec HELLO.ELF` in a Terminal loads the file into memory, calls it, and
+shows its output in that Terminal. When the program ends, by returning,
+calling `SYS_EXIT` or crashing, you're back at the prompt.
 
 ## The program area
 
@@ -77,15 +80,88 @@ the buffer. `range_fits(start, length, limit)` checks `start <= limit` and
 `length <= limit - start` instead. Once the first part holds, the
 subtraction can't wrap, so there is no way to sneak past it.
 
+## The `exec` command
+
+`cmd_exec` in `shell/shell.c` puts the pieces together:
+
+1. **Read the file.** `shell_read_program` allocates a 1 MB + 1 byte buffer
+   and reads the file into it with `fat12_read`. The extra byte tells it
+   whether the file was bigger than the 1 MB limit.
+2. **Load it.** `elf_load(image, size)` checks the file and copies its
+   segments into the program area. The buffer is freed right after,
+   because the program now lives in the program area and the buffer isn't
+   needed while it runs.
+3. **Run it.** `program_run(entry, sh->con)` calls the program and returns
+   how it ended.
+4. **Report.** A crash prints the exception's name, and a non-zero exit
+   code is printed. A normal exit with code 0 prints nothing extra.
+
+| You type | You see |
+|----------|---------|
+| `exec HELLO.ELF` | The program's output. |
+| `exec NOTES.TXT` | `exec: NOTES.TXT is not a valid planckOS program (the serial log says why)` |
+| `exec NOPE.ELF` | `exec: file not found: NOPE.ELF` |
+| a program that calls `sys_exit(7)` | `exec: ... exited with code 7` |
+| a program that runs an invalid instruction | `exec: ... crashed: Invalid Opcode` |
+
+## How a program runs and ends
+
+A program is just a function at its entry point. There are no processes:
+`program_call` (in `program.s`) calls it in ring 0, on the kernel's own
+stack, like any C function. Its return value is its exit code.
+
+```
+cmd_exec -> program_run -> program_call -> entry()      normal return
+                                             |
+                                             +-> int 0x80 -> isr_handler
+                                             |      -> syscall_handler -> SYS_EXIT
+                                             +-> CPU exception -> isr_handler
+```
+
+Ending through `SYS_EXIT` or an exception is the tricky part: by then the
+CPU is several calls and an interrupt frame deep, below the program.
+Returning normally would go back *into the program*. So `program_call`
+saves its stack pointer before calling the entry point, and
+`program_unwind(code)`:
+
+1. puts that saved stack pointer back into `esp`, which throws away the
+   program's frames and the interrupt frames below them,
+2. turns interrupts back on with `sti` (interrupt handlers run with them
+   off, and we leave one without `iret`),
+3. pops the registers `program_call` saved and returns `code` from it.
+
+To `program_run` it looks as if the program returned `code`.
+`program_exit` (for `SYS_EXIT`) and `program_crash` (for exceptions) both
+use it, but only while a program is running. Otherwise they return, and
+the old behavior applies (an exception in the kernel itself still halts
+the machine). `program_call` also saves and restores `ebp`, `ebx`, `esi`
+and `edi`, and resets `esp` even after a normal return, so a program that
+breaks the C calling rules can't corrupt the shell.
+
 ## Key functions
 
 | Function | Purpose |
 |----------|---------|
 | `elf_init()` | Reserve the program area in the PMM. |
 | `elf_load(data, size)` | Validate and load an ELF file from memory; returns the entry point or 0. |
+| `program_run(entry, con)` | Call a loaded program with its output going to `con`; returns `{ crashed, exception, exit_code }`. |
+| `program_console()` | The running program's console (used by `SYS_PRINT`), or `NULL`. |
+| `program_exit(code)` | End the running program (used by `SYS_EXIT`). |
+| `program_crash(vector)` | End the running program after a CPU exception (used by `isr_handler`). |
 
 ## Known limits
 
-- Only statically linked, non-relocatable executables (`ET_EXEC`) linked
-  at an address inside 32-48 MB.
-- One program at a time: every program uses the same area.
+- **Ring 0, no protection.** A program runs with full kernel privileges.
+  It can overwrite any memory, including the kernel, or disable interrupts.
+  The checks above protect against *broken files*, not against *malicious
+  code*.
+- **An infinite loop freezes the OS.** There's no preemption: while a
+  program runs, the GUI's main loop doesn't, so nothing is redrawn. Only
+  the reset button helps.
+- **Crashes are only caught if the CPU notices them.** Writing garbage
+  into memory isn't an exception.
+- **Shared kernel stack.** Programs run on the kernel's 8 KB boot stack, so
+  deep recursion or big local arrays will overflow it.
+- One program at a time, all using the same area. Only statically linked,
+  non-relocatable executables (`ET_EXEC`) linked inside 32-48 MB. Files up
+  to 1 MB.

@@ -7,6 +7,7 @@
  */
 #include "arch/idt.h"
 #include "arch/syscall.h"
+#include "exec/program.h"
 #include "lib/console.h"
 #include "drivers/serial.h"
 #include "lib/string.h"
@@ -114,10 +115,17 @@ void irq_handler(registers_t* regs) {
 }
 
 /* Called from isr_common_stub in idt.s. */
+const char* idt_exception_name(uint32_t vector) {
+    return vector < EXCEPTION_COUNT ? exception_messages[vector] : "Unknown Exception";
+}
+
 void isr_handler(registers_t* regs) {
     if (regs->int_no < EXCEPTION_COUNT) {
         serial_printf("EXCEPTION %d (%s) at eip %x, error %x\n", regs->int_no,
                       exception_messages[regs->int_no], regs->eip, regs->err_code);
+        /* If a program caused it, end just the program; this call doesn't
+           return then. Otherwise the kernel itself is broken: halt. */
+        program_crash(regs->int_no);
         printf("%s\nEXCEPTION !!\nplanckOS has been halted !", exception_messages[regs->int_no]);
         for (;;) asm volatile("hlt");
     }
