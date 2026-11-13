@@ -56,23 +56,9 @@ static uint32_t syscall_time(void) {
     return ((uint32_t)now.hour << 16) | ((uint32_t)now.minute << 8) | now.second;
 }
 
-void syscall_handler(registers_t* regs) {
+/* SYS_WIN_* (6-12): windows for programs, see exec/progwin.c. */
+static void syscall_window(registers_t* regs) {
     switch (regs->eax) {
-        case SYS_PRINT:
-            syscall_print((const char*)regs->ebx);
-            break;
-        case SYS_PRINT_HEX:
-            syscall_print_hex(regs->ebx);
-            break;
-        case SYS_PRINT_NUMBER:
-            syscall_print_number((int32_t)regs->ebx);
-            break;
-        case SYS_MALLOC:
-            regs->eax = (uint32_t)kmalloc(regs->ebx);
-            break;
-        case SYS_FREE:
-            kfree((void*)regs->ebx);
-            break;
         case SYS_WIN_CREATE:
             regs->eax = progwin_create((const char*)regs->ebx,
                                        (int)regs->ecx, (int)regs->edx);
@@ -98,6 +84,26 @@ void syscall_handler(registers_t* regs) {
             progwin_draw_line(regs->ebx, HIGH16(regs->ecx), LOW16(regs->ecx),
                               HIGH16(regs->edx), LOW16(regs->edx), regs->esi);
             break;
+    }
+}
+
+void syscall_handler(registers_t* regs) {
+    switch (regs->eax) {
+        case SYS_PRINT:
+            syscall_print((const char*)regs->ebx);
+            break;
+        case SYS_PRINT_HEX:
+            syscall_print_hex(regs->ebx);
+            break;
+        case SYS_PRINT_NUMBER:
+            syscall_print_number((int32_t)regs->ebx);
+            break;
+        case SYS_MALLOC:
+            regs->eax = (uint32_t)kmalloc(regs->ebx);
+            break;
+        case SYS_FREE:
+            kfree((void*)regs->ebx);
+            break;
         case SYS_TIME:
             regs->eax = syscall_time();
             break;
@@ -108,6 +114,7 @@ void syscall_handler(registers_t* regs) {
             serial_printf("syscall: SYS_EXIT with no program running\n");
             break;
         default:
+            syscall_window(regs);
             break;
     }
 }
