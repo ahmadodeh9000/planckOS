@@ -24,6 +24,8 @@
 #define SYS_WIN_TEXT        9
 #define SYS_WIN_INVALIDATE  10
 #define SYS_WIN_CLOSE       11
+#define SYS_WIN_LINE        12
+#define SYS_TIME            13
 
 /* Events for SYS_WIN_ON. */
 #define WIN_EVENT_PAINT     0       /* paint(id) */
@@ -92,5 +94,22 @@ static inline void sys_win_invalidate(uint32_t id) {
 static inline void sys_win_close(uint32_t id) {
     asm volatile("int $0x80" :: "a"(SYS_WIN_CLOSE), "b"(id) : "memory");
 }
+
+/* Draw a line from (x0, y0) to (x1, y1). Only works inside paint. */
+static inline void sys_win_line(uint32_t id, int x0, int y0, int x1, int y1, uint32_t color) {
+    asm volatile("int $0x80" :: "a"(SYS_WIN_LINE), "b"(id),
+                 "c"(PACK16(x0, y0)), "d"(PACK16(x1, y1)), "S"(color) : "memory");
+}
+
+/* The time of day: (hour << 16) | (minute << 8) | second. */
+static inline uint32_t sys_time(void) {
+    uint32_t time;
+    asm volatile("int $0x80" : "=a"(time) : "a"(SYS_TIME) : "memory");
+    return time;
+}
+
+#define TIME_HOUR(t)    (((t) >> 16) & 0xFF)
+#define TIME_MINUTE(t)  (((t) >> 8) & 0xFF)
+#define TIME_SECOND(t)  ((t) & 0xFF)
 
 #endif

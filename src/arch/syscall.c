@@ -13,6 +13,7 @@
 #include "drivers/serial.h"
 #include "lib/console.h"
 #include "exec/progwin.h"
+#include "drivers/rtc.h"
 #include "mm/kmalloc.h"
 
 /* Two signed 16-bit values packed into one register: (high << 16) | low.
@@ -46,6 +47,13 @@ static void syscall_print_number(int32_t value) {
     } else {
         printf("%d", value);
     }
+}
+
+/* The time of day from the RTC, packed as (hour << 16) | (minute << 8) | second. */
+static uint32_t syscall_time(void) {
+    rtc_time_t now;
+    rtc_read(&now);
+    return ((uint32_t)now.hour << 16) | ((uint32_t)now.minute << 8) | now.second;
 }
 
 void syscall_handler(registers_t* regs) {
@@ -85,6 +93,13 @@ void syscall_handler(registers_t* regs) {
             break;
         case SYS_WIN_CLOSE:
             progwin_close(regs->ebx);
+            break;
+        case SYS_WIN_LINE:
+            progwin_draw_line(regs->ebx, HIGH16(regs->ecx), LOW16(regs->ecx),
+                              HIGH16(regs->edx), LOW16(regs->edx), regs->esi);
+            break;
+        case SYS_TIME:
+            regs->eax = syscall_time();
             break;
         case SYS_EXIT:
             /* Ends the program and returns to whoever started it; only

@@ -45,6 +45,8 @@ Coordinates and sizes come in pairs, packed into one register as two
 | 9 | `SYS_WIN_TEXT` | `ebx` = id, `ecx` = x\|y, `edx` = text, `esi` = color | |
 | 10 | `SYS_WIN_INVALIDATE` | `ebx` = id | |
 | 11 | `SYS_WIN_CLOSE` | `ebx` = id | |
+| 12 | `SYS_WIN_LINE` | `ebx` = id, `ecx` = x0\|y0, `edx` = x1\|y1, `esi` = color | |
+| 13 | `SYS_TIME` | none | `eax` = `(hour << 16) \| (minute << 8) \| second` |
 
 Colors are `0x00RRGGBB`. Windows are at most 800x600. A program can have
 at most 4 windows (`PROGWIN_MAX`).
@@ -78,7 +80,8 @@ same `program_call` as `exec`, which pushes the three arguments and calls
 `fn`. A crash or `SYS_EXIT` inside a callback unwinds back to the window
 manager the same way it unwinds back to the shell.
 
-**Drawing only happens in paint.** `SYS_WIN_RECT` and `SYS_WIN_TEXT` only
+**Drawing only happens in paint.** `SYS_WIN_RECT`, `SYS_WIN_TEXT` and
+`SYS_WIN_LINE` only
 work while that window's own paint callback is running (`progwin.c`
 checks `painting`). Everywhere else they do nothing. To change what's on
 screen, a key, mouse or timer callback changes the program's variables
@@ -150,7 +153,7 @@ progwin: bad string pointer 0x100000 from the program
 |----------|---------|
 | `progwin_create(title, w, h)` | Open a window for the program; returns its id. |
 | `progwin_set_callback(id, event, fn)` | Register a program function for an event. |
-| `progwin_fill_rect`, `progwin_draw_text` | Draw, only inside paint. |
+| `progwin_fill_rect`, `progwin_draw_text`, `progwin_draw_line` | Draw, only inside paint. |
 | `progwin_invalidate(id)`, `progwin_close(id)` | Ask for a repaint / a close at the next frame. |
 | `progwin_set_owner(name)`, `progwin_owner()` | Who owns the open windows (used by `exec`). |
 | `progwin_program_crashed()` | Kill the program and close all its windows. |
@@ -167,4 +170,4 @@ progwin: bad string pointer 0x100000 from the program
 - Only one program with windows at a time, with at most 4 windows.
 - No mouse release or move events, no right button, no keys other than
   printable characters and the `KEY_*` codes.
-- Drawing is limited to rectangles and text.
+- Drawing is limited to rectangles, lines and text.

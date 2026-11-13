@@ -36,6 +36,7 @@ bool progwin_set_callback(uint32_t id, uint32_t event, uint32_t fn);
 /* Drawing, only allowed inside the window's paint callback. */
 void progwin_fill_rect(uint32_t id, int x, int y, int w, int h, uint32_t color);
 void progwin_draw_text(uint32_t id, int x, int y, const char* text, uint32_t color);
+void progwin_draw_line(uint32_t id, int x0, int y0, int x1, int y1, uint32_t color);
 
 /* Ask for the window to be repainted (its paint callback runs soon). */
 void progwin_invalidate(uint32_t id);

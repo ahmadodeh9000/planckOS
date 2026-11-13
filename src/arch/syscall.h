@@ -26,6 +26,8 @@
 #define SYS_WIN_TEXT        9       /* ebx = id, ecx = x|y, edx = text, esi = color */
 #define SYS_WIN_INVALIDATE  10      /* ebx = id: repaint the window soon */
 #define SYS_WIN_CLOSE       11      /* ebx = id: close the window at the next frame */
+#define SYS_WIN_LINE        12      /* ebx = id, ecx = x0|y0, edx = x1|y1, esi = color */
+#define SYS_TIME            13      /* -> (hour << 16) | (minute << 8) | second */
 
 /* Events for SYS_WIN_ON. "x|y" means (x << 16) | y in one register. */
 #define WIN_EVENT_PAINT     0       /* paint(id) */

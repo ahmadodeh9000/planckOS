@@ -27,7 +27,8 @@ registers:
 | 3 | `SYS_EXIT` | End the running program with exit code `ebx` and return to the shell. |
 | 4 | `SYS_PRINT_HEX` | Print `ebx` as hex, like `SYS_PRINT`. |
 | 5 | `SYS_PRINT_NUMBER` | Print `ebx` as a signed decimal number, without a newline. |
-| 6-11 | `SYS_WIN_*` | Windows for programs: create, set a callback, draw a rectangle or text, invalidate, close. See `PROGRAMS_GUI.md`. |
+| 6-12 | `SYS_WIN_*` | Windows for programs: create, set a callback, draw a rectangle, text or a line, invalidate, close. See `PROGRAMS_GUI.md`. |
+| 13 | `SYS_TIME` | `eax = (hour << 16) \| (minute << 8) \| second` from the RTC. |
 
 Calls with more than one argument use `ecx`, `edx`, `esi` and `edi` as
 arguments 2 to 5. Every register except `eax` is preserved.
