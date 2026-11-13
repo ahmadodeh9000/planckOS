@@ -15,9 +15,11 @@
 #include "exec/progwin.h"
 #include "mm/kmalloc.h"
 
-/* Two 16-bit values packed into one register: (high << 16) | low. */
-#define HIGH16(v)   ((int)((v) >> 16))
-#define LOW16(v)    ((int)((v) & 0xFFFF))
+/* Two signed 16-bit values packed into one register: (high << 16) | low.
+   Going through int16_t keeps the sign, so x = -5 arrives as -5, not 65531,
+   and a program can draw shapes that start left of or above the window. */
+#define HIGH16(v)   ((int)(int16_t)((v) >> 16))
+#define LOW16(v)    ((int)(int16_t)((v) & 0xFFFF))
 
 static void syscall_print(const char* text) {
     console_t* con = program_console();
