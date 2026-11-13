@@ -1,11 +1,11 @@
 /*
  * progwin.c - the table of windows that belong to the running program.
  *
- * Each slot links a kernel window_t to the id the program knows it by.
- * Later steps add the program's callback addresses (paint, key, ...) to
- * the slot, and kernel-side functions that forward events to them.
+ * Each slot links a kernel window_t to the id the program knows it by,
+ * and holds the addresses of the program's callbacks (paint, key, mouse,
+ * timer). The window manager calls the progwin_* handlers below, which
+ * forward each event to the program's function through program_callback.
  */
-
 #include "exec/program.h"
 #include "exec/elf.h"
 #include "arch/syscall.h"
@@ -15,12 +15,8 @@
 #include "gui/wm.h"
 #include "drivers/serial.h"
 
-
-// max width and length
-
-#define PROGWIN_MAX_WIDTH       800
+#define PROGWIN_MAX_WIDTH       800     /* largest window a program may open */
 #define PROGWIN_MAX_HEIGHT      600
-
 
 typedef struct {
     window_t* win;          /* NULL = this slot is free */
@@ -32,7 +28,6 @@ typedef struct {
 
 static progwin_t slots[PROGWIN_MAX];
 static progwin_t* painting;             /* the window inside its paint callback, or NULL */
-
 
 /* slots[0] is id 1, slots[1] is id 2, ...; 0 is never a valid id. */
 static uint32_t progwin_id(const progwin_t* pw) {
@@ -50,9 +45,10 @@ static progwin_t* progwin_get(uint32_t id) {
 
 static progwin_t* progwin_free_slot(void) {
     for (int i = 0; i < PROGWIN_MAX; ++i) {
-        if (NULL == slots[i].win) return &slots[i];
+        if (slots[i].win == NULL) {
+            return &slots[i];
+        }
     }
-
     return NULL;
 }
 
@@ -100,7 +96,7 @@ static void progwin_timer(window_t* win) {
     progwin_call(pw, pw->on_timer, 0, 0, "timer");
 }
 
-// creating windows
+/* ---- the syscalls ------------------------------------------------- */
 
 uint32_t progwin_create(const char* title, int width, int height) {
     if (width <= 0 || height <= 0 ||
@@ -110,8 +106,7 @@ uint32_t progwin_create(const char* title, int width, int height) {
     }
 
     progwin_t* pw = progwin_free_slot();
-
-    if (NULL == pw) {
+    if (pw == NULL) {
         serial_printf("progwin: program already has %d windows\n", PROGWIN_MAX);
         return 0;
     }
@@ -131,9 +126,6 @@ uint32_t progwin_create(const char* title, int width, int height) {
 
     return progwin_id(pw);
 }
-
-
-
 
 bool progwin_set_callback(uint32_t id, uint32_t event, uint32_t fn) {
     progwin_t* pw = progwin_get(id);

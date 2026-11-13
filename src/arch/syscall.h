@@ -9,7 +9,6 @@
  *
  * programs/planck.h has the same numbers for programs; keep them in sync.
  */
-
 #ifndef syscall_h__
 #define syscall_h__
 
@@ -20,9 +19,8 @@
 #define SYS_FREE            2
 #define SYS_EXIT            3       /* ebx = exit code */
 #define SYS_PRINT_HEX       4
-#define SYS_PRINT_NUMBER    5      /* ebx as a signed decimal, no newline */
-#define SYS_WIN_CREATE      6
-
+#define SYS_PRINT_NUMBER    5       /* ebx as a signed decimal, no newline */
+#define SYS_WIN_CREATE      6       /* ebx = title, ecx = width, edx = height -> id / 0 */
 #define SYS_WIN_ON          7       /* ebx = id, ecx = event, edx = function -> 1 ok / 0 */
 #define SYS_WIN_RECT        8       /* ebx = id, ecx = x|y, edx = w|h, esi = color */
 #define SYS_WIN_TEXT        9       /* ebx = id, ecx = x|y, edx = text, esi = color */

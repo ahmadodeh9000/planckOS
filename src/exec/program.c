@@ -49,6 +49,7 @@ program_result_t program_callback(uint32_t fn, uint32_t a0, uint32_t a1, uint32_
     }
     return program_enter(fn, a0, a1, a2, NULL);
 }
+
 console_t* program_console(void) {
     return running ? running_console : NULL;
 }

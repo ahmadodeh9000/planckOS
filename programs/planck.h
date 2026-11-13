@@ -52,8 +52,6 @@ static inline void sys_exit(uint32_t code) {
     __builtin_unreachable();
 }
 
-
-
 /* Open a window. Returns its id, or 0 if it couldn't be opened. */
 static inline uint32_t sys_win_create(const char* title, int width, int height) {
     uint32_t id;

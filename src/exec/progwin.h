@@ -4,10 +4,6 @@
  * Programs never see window_t pointers. They get a small id
  * (1..PROGWIN_MAX), and the kernel checks it on every syscall, so a buggy
  * program can't make the kernel touch random memory.
- * 
- * 
- * 
- * NOTE FROM AUTHOR: If you are reading this, I love you <3
  */
 #ifndef progwin_h__
 #define progwin_h__

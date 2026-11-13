@@ -67,7 +67,6 @@ void syscall_handler(registers_t* regs) {
             regs->eax = progwin_create((const char*)regs->ebx,
                                        (int)regs->ecx, (int)regs->edx);
             break;
-
         case SYS_WIN_ON:
             regs->eax = progwin_set_callback(regs->ebx, regs->ecx, regs->edx);
             break;
@@ -79,11 +78,9 @@ void syscall_handler(registers_t* regs) {
             progwin_draw_text(regs->ebx, HIGH16(regs->ecx), LOW16(regs->ecx),
                               (const char*)regs->edx, regs->esi);
             break;
-        
         case SYS_WIN_INVALIDATE:
             progwin_invalidate(regs->ebx);
             break;
-
         case SYS_EXIT:
             /* Ends the program and returns to whoever started it; only
                comes back here if no program is running. */
