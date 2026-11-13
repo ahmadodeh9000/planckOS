@@ -59,4 +59,7 @@ void elf_init(void);
    to the serial log). */
 uint32_t elf_load(const uint8_t* data, uint32_t size);
 
+/* True if 'address' is inside the area programs are loaded into. */
+bool elf_in_program_area(uint32_t address);
+
 #endif

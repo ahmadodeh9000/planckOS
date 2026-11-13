@@ -20,6 +20,10 @@ typedef struct {
 /* Call the program at 'entry'. Its SYS_PRINT output goes to 'con'. */
 program_result_t program_run(uint32_t entry, console_t* con);
 
+/* Call a program function from the GUI (a callback), as fn(a0, a1, a2).
+   Output goes to the default console. Crashes are caught like in program_run. */
+program_result_t program_callback(uint32_t fn, uint32_t a0, uint32_t a1, uint32_t a2);
+
 /* The console of the running program, or NULL if none is running. */
 console_t* program_console(void);
 

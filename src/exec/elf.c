@@ -119,3 +119,7 @@ uint32_t elf_load(const uint8_t* data, uint32_t size) {
     }
     return h->entry;
 }
+
+bool elf_in_program_area(uint32_t address) {
+    return address >= PROGRAM_BASE && address < PROGRAM_END;
+}

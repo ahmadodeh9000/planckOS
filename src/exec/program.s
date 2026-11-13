@@ -17,17 +17,23 @@ saved_esp:  resd 1          ; esp inside program_call, while a program runs
 
 section .text
 
-; uint32_t program_call(uint32_t entry)
-; Calls entry() and returns its eax (the program's exit code).
+; uint32_t program_call(uint32_t fn, uint32_t a0, uint32_t a1, uint32_t a2)
+; Calls fn(a0, a1, a2) with the C calling convention and returns its eax.
 program_call:
-    push ebp                ; the C calling convention says these four
-    push ebx                ; must survive a call; a program might not
-    push esi                ; respect that, so save them ourselves
-    push edi
+    push ebp
+    mov ebp, esp            ; fixed reference point for our arguments:
+                            ; [ebp+8]=fn  [ebp+12]=a0  [ebp+16]=a1  [ebp+20]=a2
+    push ebx                ; the C calling convention says these must
+    push esi                ; survive a call; a program might not respect
+    push edi                ; that, so save them ourselves
     mov [saved_esp], esp
-    call [esp + 20]         ; entry: 4 saved registers + return address above it
+    push dword [ebp + 20]   ; arguments go on the stack right to left,
+    push dword [ebp + 16]   ; so a0 ends up on top, at [esp+4] once
+    push dword [ebp + 12]   ; 'call' has pushed the return address
+    call [ebp + 8]
 .restore:
-    mov esp, [saved_esp]    ; also fixes a program that left its stack unbalanced
+    mov esp, [saved_esp]    ; drops the 3 arguments, and also fixes a
+                            ; program that left its stack unbalanced
     pop edi
     pop esi
     pop ebx
