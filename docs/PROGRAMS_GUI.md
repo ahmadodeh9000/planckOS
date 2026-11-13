@@ -128,6 +128,22 @@ calling into the program area. That gives three rules:
    So it's safe for a program to close a window from inside that window's
    own callbacks, even from paint.
 
+## Strings from the program
+
+`SYS_WIN_CREATE` (the title) and `SYS_WIN_TEXT` (the text) pass a pointer
+to a string, and the kernel has to read it. A wrong pointer could make the
+kernel read anything: other memory, or, with no `'\0'` in sight, far past
+the end of everything. So `progwin_string_ok(s, 256)` checks, one byte at
+a time *before* reading it, that every byte up to and including the
+`'\0'` is inside the program area, and that the `'\0'` comes within 256
+characters. A pointer into the kernel, or a string that runs off the end
+of the program area, is refused: the window isn't created (`eax` = 0) or
+the text isn't drawn, and the bad address goes to the serial log:
+
+```
+progwin: bad string pointer 0x100000 from the program
+```
+
 ## Key functions
 
 | Function | Purpose |
@@ -143,8 +159,9 @@ calling into the program area. That gives three rules:
 ## Known limits
 
 - **Ring 0, no protection.** Programs run with kernel privileges. The
-  checks catch mistakes (bad ids, bad callback addresses, crashes), not
-  malice: a program can still overwrite kernel memory directly.
+  checks catch mistakes (bad ids, bad callback addresses, bad string
+  pointers, crashes), not malice: a program can still overwrite kernel
+  memory directly.
 - **A callback that never returns freezes the OS.** There's no
   preemption, and the window manager waits for every callback.
 - Only one program with windows at a time, with at most 4 windows.

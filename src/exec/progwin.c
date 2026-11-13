@@ -6,8 +6,8 @@
  * timer). The window manager calls the progwin_* handlers below, which
  * forward each event to the program's function through program_callback.
  *
- * Everything that comes from the program is checked: window ids must be
- * valid and callback addresses must point into the program area. If any
+ * Everything that comes from the program is checked: window ids, callback
+ * addresses and string pointers must point into the program area. If any
  * callback crashes, the program is marked dead, all its windows are closed
  * and none of its code is called again.
  */
@@ -23,6 +23,7 @@
 
 #define PROGWIN_MAX_WIDTH       800     /* largest window a program may open */
 #define PROGWIN_MAX_HEIGHT      600
+#define PROGWIN_TEXT_MAX        256     /* longest title or text a program may pass */
 
 typedef struct {
     window_t* win;          /* NULL = this slot is free */
@@ -79,6 +80,27 @@ static void progwin_call(progwin_t* pw, uint32_t fn, uint32_t a1, uint32_t a2,
                       what, progwin_id(pw));
         progwin_program_crashed();
     }
+}
+
+/*
+ * True if the program's string 's' starts inside the program area and its
+ * '\0' comes within max_length characters, also inside the area. Each byte
+ * is checked before it is read, so the kernel never reads outside the
+ * program area on the program's behalf, even for a string with no end.
+ */
+static bool progwin_string_ok(const char* s, uint32_t max_length) {
+    uint32_t address = (uint32_t)s;
+
+    for (uint32_t i = 0; i <= max_length; i++) {
+        if (!elf_in_program_area(address + i)) {
+            break;
+        }
+        if (s[i] == '\0') {
+            return true;
+        }
+    }
+    serial_printf("progwin: bad string pointer %x from the program\n", address);
+    return false;
 }
 
 /* ---- lifetime ----------------------------------------------------- */
@@ -144,6 +166,9 @@ static void progwin_timer(window_t* win) {
 /* ---- the syscalls ------------------------------------------------- */
 
 uint32_t progwin_create(const char* title, int width, int height) {
+    if (!progwin_string_ok(title, PROGWIN_TEXT_MAX)) {
+        return 0;
+    }
     if (width <= 0 || height <= 0 ||
         width > PROGWIN_MAX_WIDTH || height > PROGWIN_MAX_HEIGHT) {
         serial_printf("progwin: bad window size %dx%d\n", width, height);
@@ -212,7 +237,7 @@ void progwin_fill_rect(uint32_t id, int x, int y, int w, int h, uint32_t color) 
 
 void progwin_draw_text(uint32_t id, int x, int y, const char* text, uint32_t color) {
     progwin_t* pw = progwin_drawing(id);
-    if (pw) {
+    if (pw && progwin_string_ok(text, PROGWIN_TEXT_MAX)) {
         font_draw_text(&pw->win->surface, x, y, text, color);
     }
 }
