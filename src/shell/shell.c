@@ -16,6 +16,7 @@
 #include "arch/idt.h"
 #include "exec/elf.h"
 #include "exec/program.h"
+#include "exec/progwin.h"
 #include "asm/asm.h"
 #include "lib/string.h"
 
@@ -219,9 +220,25 @@ static uint8_t* shell_read_file(shell_t* sh, const char* command, const char* na
 }
 
 /* exec <file>: load an ELF program and run it until it ends. */
+static void shell_report_exit(shell_t* sh, const char* name, program_result_t result) {
+    if (result.crashed) {
+        console_printf(sh->con, "exec: %s crashed: %s\n", name,
+                       idt_exception_name(result.exception));
+        progwin_program_crashed();      /* windows it opened can't be trusted */
+    } else if (result.exit_code != 0) {
+        console_printf(sh->con, "exec: %s exited with code %u\n", name, result.exit_code);
+    }
+}
+
 static void cmd_exec(shell_t* sh, const char* args) {
     if (!*args) {
         console_print(sh->con, "Usage: exec <file>\n");
+        return;
+    }
+    /* Loading would overwrite the code that the open windows call into. */
+    const char* owner = progwin_owner();
+    if (owner) {
+        console_printf(sh->con, "exec: close %s's windows first\n", owner);
         return;
     }
     uint32_t size;
@@ -238,13 +255,8 @@ static void cmd_exec(shell_t* sh, const char* args) {
         return;
     }
 
-    program_result_t result = program_run(entry, sh->con);
-    if (result.crashed) {
-        console_printf(sh->con, "exec: %s crashed: %s\n", args,
-                       idt_exception_name(result.exception));
-    } else if (result.exit_code != 0) {
-        console_printf(sh->con, "exec: %s exited with code %u\n", args, result.exit_code);
-    }
+    progwin_set_owner(args);
+    shell_report_exit(sh, args, program_run(entry, sh->con));
 }
 
 /* Copy the first word of 'args' into 'word' (at most max - 1 characters)

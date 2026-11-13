@@ -5,6 +5,11 @@
  * and holds the addresses of the program's callbacks (paint, key, mouse,
  * timer). The window manager calls the progwin_* handlers below, which
  * forward each event to the program's function through program_callback.
+ *
+ * Everything that comes from the program is checked: window ids must be
+ * valid and callback addresses must point into the program area. If any
+ * callback crashes, the program is marked dead, all its windows are closed
+ * and none of its code is called again.
  */
 #include "exec/program.h"
 #include "exec/elf.h"
@@ -14,6 +19,7 @@
 #include "exec/progwin.h"
 #include "gui/wm.h"
 #include "drivers/serial.h"
+#include "lib/string.h"
 
 #define PROGWIN_MAX_WIDTH       800     /* largest window a program may open */
 #define PROGWIN_MAX_HEIGHT      600
@@ -28,6 +34,8 @@ typedef struct {
 
 static progwin_t slots[PROGWIN_MAX];
 static progwin_t* painting;             /* the window inside its paint callback, or NULL */
+static char owner[PROGWIN_NAME_MAX];    /* name of the program that owns the windows */
+static bool program_dead;               /* it crashed: never call into it again */
 
 /* slots[0] is id 1, slots[1] is id 2, ...; 0 is never a valid id. */
 static uint32_t progwin_id(const progwin_t* pw) {
@@ -62,14 +70,51 @@ static void progwin_closed(window_t* win) {
 /* Call the program's function 'fn' as fn(id, a1, a2), if it set one. */
 static void progwin_call(progwin_t* pw, uint32_t fn, uint32_t a1, uint32_t a2,
                          const char* what) {
-    if (!fn) {
+    if (!fn || program_dead) {
         return;
     }
     program_result_t r = program_callback(fn, progwin_id(pw), a1, a2);
     if (r.crashed) {
         serial_printf("progwin: %s callback of window %u crashed\n",
                       what, progwin_id(pw));
+        progwin_program_crashed();
     }
+}
+
+/* ---- lifetime ----------------------------------------------------- */
+
+void progwin_set_owner(const char* name) {
+    uint32_t length = strlen(name);
+    if (length >= PROGWIN_NAME_MAX) {
+        length = PROGWIN_NAME_MAX - 1;
+    }
+    memcpy(owner, name, length);
+    owner[length] = '\0';
+    program_dead = false;       /* a fresh program has been loaded */
+}
+
+const char* progwin_owner(void) {
+    for (int i = 0; i < PROGWIN_MAX; i++) {
+        if (slots[i].win) {
+            return owner;
+        }
+    }
+    return NULL;
+}
+
+/* Requests (not immediate closes): this may run inside a paint or timer
+   callback, where the window manager is still using the windows. */
+void progwin_program_crashed(void) {
+    int open = 0;
+
+    program_dead = true;
+    for (int i = 0; i < PROGWIN_MAX; i++) {
+        if (slots[i].win) {
+            window_request_close(slots[i].win);
+            open++;
+        }
+    }
+    serial_printf("progwin: %s crashed, closing its %d window(s)\n", owner, open);
 }
 
 static void progwin_paint(window_t* win) {
@@ -176,5 +221,11 @@ void progwin_invalidate(uint32_t id) {
     progwin_t* pw = progwin_get(id);
     if (pw) {
         window_invalidate(pw->win);
+    }
+}
+void progwin_close(uint32_t id) {
+    progwin_t* pw = progwin_get(id);
+    if (pw) {
+        window_request_close(pw->win);
     }
 }

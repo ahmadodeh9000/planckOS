@@ -23,6 +23,7 @@
 #define SYS_WIN_RECT        8
 #define SYS_WIN_TEXT        9
 #define SYS_WIN_INVALIDATE  10
+#define SYS_WIN_CLOSE       11
 
 /* Events for SYS_WIN_ON. */
 #define WIN_EVENT_PAINT     0       /* paint(id) */
@@ -80,6 +81,16 @@ static inline void sys_win_rect(uint32_t id, int x, int y, int w, int h, uint32_
 static inline void sys_win_text(uint32_t id, int x, int y, const char* text, uint32_t color) {
     asm volatile("int $0x80" :: "a"(SYS_WIN_TEXT), "b"(id),
                  "c"(PACK16(x, y)), "d"(text), "S"(color) : "memory");
+}
+
+/* Ask for the window's paint callback to run soon. Draw only in paint. */
+static inline void sys_win_invalidate(uint32_t id) {
+    asm volatile("int $0x80" :: "a"(SYS_WIN_INVALIDATE), "b"(id) : "memory");
+}
+
+/* Close the window at the next frame. Safe from its own callbacks. */
+static inline void sys_win_close(uint32_t id) {
+    asm volatile("int $0x80" :: "a"(SYS_WIN_CLOSE), "b"(id) : "memory");
 }
 
 #endif

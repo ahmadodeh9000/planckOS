@@ -195,6 +195,14 @@ run `make programs` again. You can also write programs in assembly inside
 planckOS itself and turn them into ELF files with the `asm` command (see
 `ASSEMBLER.md`).
 
+## Programs with windows
+
+A program can also open windows and keep running after `_start` returns:
+its windows call back into its code for paint, keys, clicks and a timer.
+That has its own page, `PROGRAMS_GUI.md`, with the system calls, the
+callback model and the lifetime rules (for example why `exec` refuses to
+start a program while another one's windows are open).
+
 ## Key functions
 
 | Function | Purpose |

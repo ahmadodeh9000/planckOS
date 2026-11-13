@@ -83,6 +83,9 @@ void syscall_handler(registers_t* regs) {
         case SYS_WIN_INVALIDATE:
             progwin_invalidate(regs->ebx);
             break;
+        case SYS_WIN_CLOSE:
+            progwin_close(regs->ebx);
+            break;
         case SYS_EXIT:
             /* Ends the program and returns to whoever started it; only
                comes back here if no program is running. */
