@@ -178,6 +178,20 @@ void window_close(window_t* win) {
     kfree(win);
 }
 
+void window_request_close(window_t* win) {
+    win->closing = true;
+}
+
+/* Close every window that asked to be closed. Runs before wm_draw walks
+   the list, so no loop is holding a pointer to them. */
+static void wm_close_requested(void) {
+    for (int i = window_count - 1; i >= 0; i--) {
+        if (windows[i]->closing) {
+            window_close(windows[i]);
+        }
+    }
+}
+
 void window_invalidate(window_t* win) {
     win->dirty = true;
 }
@@ -264,7 +278,7 @@ static bool wm_timer(void) {
 
     for (int i = 0; i < window_count; i++) {
         window_t* win = windows[i];
-        if (win->on_timer) {
+        if (win->on_timer && !win->closing) {
             win->on_timer(win);
             changed |= win->dirty;
         }
@@ -314,10 +328,11 @@ static void window_draw_frame(surface_t* screen, const window_t* win, bool focus
 }
 
 void wm_draw(surface_t* screen) {
+    wm_close_requested();
     for (int i = 0; i < window_count; i++) {
         window_t* win = windows[i];
 
-        if (win->dirty) {
+        if (win->dirty && !win->closing) {
             surface_fill_rect(&win->surface, 0, 0, win->surface.width, win->surface.height,
                               THEME_WINDOW_BG);
             if (win->on_paint) {

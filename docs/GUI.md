@@ -100,12 +100,24 @@ All callbacks are optional.
 | Function | Purpose |
 |----------|---------|
 | `window_create(title, w, h)` | Open a window with a `w x h` content area. Fill in the callbacks afterwards. |
-| `window_close(win)` | Call `on_close`, free it, remove it. Safe to call from the window's own callbacks. |
+| `window_close(win)` | Call `on_close`, free it, remove it, right away. Safe from `on_key` and `on_mouse`, but not from `on_paint` or `on_timer` (see below). |
+| `window_request_close(win)` | Close it at the start of the next frame. Safe from anywhere. |
 | `window_raise(win)` | Bring to front and focus. |
 | `window_set_title(win, title)` | Change the title bar text. |
 | `window_invalidate(win)` | Repaint the content on the next frame. |
 | `wm_handle_event(e)` | Route an input event; returns whether the screen changed. |
 | `wm_draw(screen)` | Paint dirty windows and draw all of them. |
+
+**Closing safely.** `wm_draw` calls `on_paint`, and `wm_timer` calls
+`on_timer`, while walking the `windows[]` array. If one of those callbacks
+called `window_close`, the window and its pixels would be freed while the
+loop is still using them (a use-after-free), and the array would shift
+under the loop. So callbacks that run inside those loops use
+`window_request_close(win)` instead. It only sets `win->closing`, and the
+first thing `wm_draw` does is close every window marked that way, before
+its loop starts. A marked window gets no more paint or timer calls until
+then. Since every handled event is followed by a redraw, that's at most one
+frame later.
 
 **Extending it.** Minimizing would mean a `hidden` flag that `wm_draw` and
 `window_at_point` skip, with the taskbar button un-hiding it. Resizing

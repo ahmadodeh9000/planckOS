@@ -25,6 +25,7 @@ struct window {
     int x, y;                   /* top-left of the frame, in screen pixels */
     surface_t surface;          /* content pixels; its size is the content size */
     bool dirty;                 /* content must be repainted (on_paint) */
+    bool closing;               /* window_request_close: close at the next frame */
     void* data;                 /* the app's own state */
 
     /* Callbacks, all optional (NULL = ignore). */
@@ -46,8 +47,16 @@ window_t* window_create(const char* title, int width, int height);
 /* Change the text in the title bar (and on the taskbar). */
 void window_set_title(window_t* win, const char* title);
 
-/* Call on_close, free the window and remove it from the screen. */
+/* Call on_close, free the window and remove it from the screen, now.
+   Safe from on_key and on_mouse, but NOT from on_paint or on_timer: the
+   window manager is walking the window list then, and would use the freed
+   window. Use window_request_close there. */
 void window_close(window_t* win);
+
+/* Close the window at the start of the next frame, when nothing is using
+   it. Safe from anywhere, including the window's own callbacks. Until then
+   it gets no more paint or timer calls. */
+void window_request_close(window_t* win);
 
 /* Put the window on top and give it keyboard focus. */
 void window_raise(window_t* win);
