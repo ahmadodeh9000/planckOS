@@ -159,10 +159,11 @@ int _start(void) {
 - **`_start` is the entry point**, not `main`: there's no C library to call
   `main` for you. Its return value is the exit code.
 - **`planck.h`** is the program's whole view of the kernel: `sys_print`,
-  `sys_print_hex`, `sys_print_number` and `sys_exit`, each a few lines of
-  inline assembly that
-  put the call number in `eax` and the argument in `ebx`, then run
-  `int $0x80`. The numbers must match `src/arch/syscall.h`.
+  `sys_print_hex`, `sys_print_number`, `sys_exit`, `sys_time` and the
+  window calls (`PROGRAMS_GUI.md`), each a few lines of inline assembly
+  that put the call number in `eax` and the arguments in `ebx`, `ecx`,
+  `edx`, `esi`, then run `int $0x80`. The numbers must match
+  `src/arch/syscall.h`.
 - **No libraries.** No `printf` or `malloc`: only what you write yourself
   plus the system calls.
 
@@ -170,7 +171,10 @@ int _start(void) {
 (`PROGRAM_BASE`), the start of the program area, and throws away sections
 the loader doesn't need. The linker then records `0x2000000` as each
 segment's `vaddr` and as the entry point, which is exactly what `elf_load`
-checks and uses.
+checks and uses. Writable data (`.data`, `.bss`) starts on the next 4 KB
+page, so a program with variables gets two segments: code (read +
+execute) and data (read + write), instead of one segment that is both
+writable and executable.
 
 **Build and install:**
 
@@ -188,7 +192,9 @@ file to 64 KB boundaries). It then copies it onto the disk image as
 without mounting it. Because of FAT12's 8.3 names, `<name>` can be at most
 8 characters. Check what the linker produced with
 `i686-elf-readelf -hl build/programs/hello.elf`: you should see `EXEC`,
-`Intel 80386`, entry `0x2000000` and one `LOAD` segment at `0x02000000`.
+`Intel 80386`, entry `0x2000000` and a `LOAD` segment at `0x02000000`
+(plus one at `0x02001000` if the program has variables, like
+`click.elf`).
 
 To add a program, create `programs/<name>.c` with an `_start` function and
 run `make programs` again. You can also write programs in assembly inside

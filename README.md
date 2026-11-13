@@ -28,7 +28,9 @@ subsystems, and `docs/` explains how each one works.
 - **Apps:** Terminal, Files, Notepad (cursor keys, line numbers,
   scrolling), Clock, About, Shut down
 - **Programs:** an ELF loader and an `exec` shell command that run
-  programs from the disk (example: `programs/hello.c`)
+  programs from the disk. Programs can open their own windows, draw in
+  them and react to keys, clicks and a timer through callbacks (examples:
+  `programs/hello.c`, `programs/click.c`, `programs/click.asm`)
 - **Assembler:** a built-in two-pass x86 assembler (`asm` command) that
   turns NASM-style source into runnable programs, so you can write, build
   and run assembly entirely inside planckOS. Its output is checked byte for
@@ -66,6 +68,7 @@ release it.
 | [GUI](docs/GUI.md) | Main loop, window manager, taskbar, launcher, widgets |
 | [APPS](docs/APPS.md) | The built-in apps, and a tutorial for writing your own |
 | [EXEC](docs/EXEC.md) | Loading and running ELF programs, and how to write one |
+| [PROGRAMS_GUI](docs/PROGRAMS_GUI.md) | Windows for programs: system calls, callbacks, lifetime rules |
 | [ASSEMBLER](docs/ASSEMBLER.md) | The built-in assembler: syntax, two passes, x86 encoding, adding instructions |
 | [ROADMAP](docs/ROADMAP.md) | What's done and good next steps |
 

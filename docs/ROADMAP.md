@@ -22,6 +22,10 @@ bitmap PMM, paging, a heap, a PS/2 keyboard, ATA PIO, FAT12 and a shell.
   About, Shut down.
 - *Programs:* an ELF loader and the `exec` command run programs from the
   disk in ring 0 (`EXEC.md`), with `programs/hello.c` as an example.
+  Programs can open windows with paint, key, mouse and timer callbacks,
+  draw rectangles, lines and text, and read the time
+  (`PROGRAMS_GUI.md`, examples `click.c` and `click.asm`). A crashing
+  callback closes the program's windows instead of the OS.
 - *Assembler:* a two-pass x86 assembler inside the OS (`asm` command,
   `ASSEMBLER.md`). Its encodings are checked against NASM, and its ELF output
   runs with `exec`. Write in Notepad, `asm`, `exec`, all without leaving
@@ -39,6 +43,9 @@ Roughly from easiest to hardest. Each one says where to start.
 - **Partial redraws.** Keep a "dirty rectangle" in `gui.c` and add
   `fb_present_rect()`, so a mouse move copies a few KB instead of 3 MB.
 - **Delete confirmation** in Files, and a "New" button that opens Notepad.
+- **More events for program windows.** Mouse release and move, the right
+  button, and a timer faster than once a second would each be one more
+  `WIN_EVENT_*` and one more `progwin_*` handler.
 - **More assembler instructions.** `adc`, `sbb`, `sar`, `movzx`, `jbe`/`jae`
   and friends are mostly one row in `mnemonics[]` each (see "How to add an
   instruction" in `ASSEMBLER.md`).

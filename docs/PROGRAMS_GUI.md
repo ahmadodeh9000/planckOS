@@ -147,6 +147,105 @@ the text isn't drawn, and the bad address goes to the serial log:
 progwin: bad string pointer 0x100000 from the program
 ```
 
+## Walkthrough: CLICK.ASM
+
+`programs/click.asm` opens a window with a red box, and every click
+switches the box between red and blue. (`programs/click.c` is the same
+program in C.) Build and run it in a Terminal:
+
+```
+admin$ asm click.asm click.elf
+admin$ exec click.elf
+```
+
+**1. Constants.** The call and event numbers from `src/arch/syscall.h`:
+
+```nasm
+SYS_WIN_CREATE     equ 6
+SYS_WIN_ON         equ 7
+SYS_WIN_RECT       equ 8
+SYS_WIN_INVALIDATE equ 10
+WIN_EVENT_PAINT    equ 0
+WIN_EVENT_MOUSE    equ 2
+RED_XOR_BLUE       equ 0x00FF00FF   ; red ^ this = blue, blue ^ this = red
+```
+
+**2. `_start` sets everything up and returns.** It opens a 200x100
+window, keeps the id in the variable `win`, and registers two callbacks:
+
+```nasm
+_start:
+    mov eax, SYS_WIN_CREATE
+    mov ebx, title          ; "Click me"
+    mov ecx, 200            ; width
+    mov edx, 100            ; height
+    int 0x80
+    mov [win], eax          ; the window id (1-4), or 0 on failure
+
+    mov eax, SYS_WIN_ON
+    mov ebx, [win]
+    mov ecx, WIN_EVENT_PAINT
+    mov edx, paint          ; the address of the paint function
+    int 0x80
+    ; ... the same for WIN_EVENT_MOUSE -> click
+    xor eax, eax
+    ret                     ; exit code 0, but the window stays open
+```
+
+After `ret`, the shell prompt comes back while the window stays: the
+program now lives on through its callbacks.
+
+**3. `paint(id)` draws from the program's state.** The window id is the
+first argument, at `[esp + 4]`. It draws one rectangle in whatever color
+the variable `color` holds:
+
+```nasm
+paint:
+    mov eax, SYS_WIN_RECT
+    mov ebx, [esp + 4]      ; id
+    mov ecx, 0x000A000A     ; x = 10, y = 10   (x|y)
+    mov edx, 0x00500020     ; w = 80, h = 32   (w|h)
+    mov esi, [color]
+    int 0x80
+    ret
+```
+
+**4. `click(id, x, y)` changes the state, not the screen.** It flips the
+color with an XOR and asks for a repaint:
+
+```nasm
+click:
+    mov eax, [color]
+    xor eax, RED_XOR_BLUE   ; 0xFF0000 <-> 0x0000FF
+    mov [color], eax
+    mov eax, SYS_WIN_INVALIDATE
+    mov ebx, [esp + 4]
+    int 0x80
+    ret
+```
+
+It doesn't draw, because drawing only works in paint. Right after the
+click, the window manager redraws, calls `paint` again, and the box shows
+the new color.
+
+**5. Data.** The variables live in the program area, next to the code:
+
+```nasm
+title: db "Click me", 0
+color: dd 0x00FF0000       ; starts red
+win:   dd 0
+```
+
+The flow for one click:
+
+```
+mouse IRQ -> event queue -> wm: press inside the window
+  -> progwin_mouse -> program_callback(click, id, x, y)
+       click: color ^= RED_XOR_BLUE; SYS_WIN_INVALIDATE
+  -> next frame: wm_draw -> progwin_paint -> program_callback(paint, id)
+       paint: SYS_WIN_RECT with the new color
+```
+
 ## Key functions
 
 | Function | Purpose |
