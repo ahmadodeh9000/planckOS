@@ -30,6 +30,15 @@ bitmap PMM, paging, a heap, a PS/2 keyboard, ATA PIO, FAT12 and a shell.
   `ASSEMBLER.md`). Its encodings are checked against NASM, and its ELF output
   runs with `exec`. Write in Notepad, `asm`, `exec`, all without leaving
   planckOS.
+- *Language models:* the x87 FPU and float math, and a port of llama2.c's
+  `run.c` (`LLM.md`), checked token for token against llama2.c
+  (`llm-test`).
+- *Iris:* a 1-million-parameter chat model trained on hand-written
+  planckOS conversations (`TRAINING.md`), in her own app with a pixel-art
+  portrait and in the Terminal (`iris`). Fact cards show the exact help
+  for commands she's asked about, and she answers some requests with tool
+  tags: disk, memory, time, files, find, open, and make-app, which builds
+  small apps from tested assembly templates.
 - *Docs:* this folder.
 
 ## Good next steps
@@ -50,7 +59,18 @@ Roughly from easiest to hardest. Each one says where to start.
   and friends are mostly one row in `mnemonics[]` each (see "How to add an
   instruction" in `ASSEMBLER.md`).
 
+- **More tools and templates for Iris.** Each is a few lines in
+  `iris_tools.c`/`iris_actions.c` or `iris_templates.c`, plus examples in
+  `training/my_tools.txt` ("Adding a tool" in `LLM.md`). A `[delete
+  "NAME"]` tool would need a confirmation step first.
+
 ### Medium
+
+- **A faster Iris.** QEMU emulates the x87 in software, so `matmul` is
+  the bottleneck. Turning on SSE (`CR4.OSFXSR`, `fxsave`) and compiling
+  `llm/model.c` with `-msse2 -mfpmath=sse` would let QEMU use simpler
+  float32 code. Caching RoPE's `sin`/`cos` per position would save a few
+  more transcendentals per token.
 
 - **FAT12 subdirectories.** A directory is an entry with attribute `0x10`
   whose cluster chain holds more 32-byte entries. Generalize
@@ -94,3 +114,6 @@ Roughly from easiest to hardest. Each one says where to start.
   visible in graphics mode. Check the serial log (`make run` prints it).
 - The heap never gives memory back to the PMM, and fragmentation is only
   reduced by merging with the next free chunk.
+- Iris and the Terminal's `iris` each load their own copy of the model
+  (about 6 MB with its run state), so both at once may not fit in the heap.
+  They then say so instead of starting.

@@ -11,6 +11,12 @@ subsystems, and `docs/` explains how each one works.
 
 ![planckOS desktop: a Terminal, the About window and the Files app](docs/desktop-2.0.png)
 
+Iris, the assistant, checking the disk and searching files, and running a
+counter app she made from a template:
+
+![Iris answering a storage question and a file search](docs/iris-tools.png)
+![A counter app Iris made, running next to her window](docs/iris-app.png)
+
 ## Features
 
 - **Boot:** GRUB Multiboot 1, 1024x768x32 framebuffer, falls back to a
@@ -38,6 +44,12 @@ subsystems, and `docs/` explains how each one works.
 - **Language models:** a port of llama2.c's `run.c` runs small Llama 2
   models on the x87 FPU; `llm-test` checks it token for token against
   llama2.c (`make models` downloads the test model)
+- **Iris:** a chat assistant, the voice of the kernel. A 1-million-
+  parameter model trained on conversations about planckOS
+  (`make chat-model`), in her own app or in the Terminal (`iris`). Fact
+  cards show the exact help next to her answers, and she uses tools: she
+  checks the disk, memory and time, finds and opens files, and makes small
+  apps from tested templates
 
 ## Build and run
 
@@ -50,6 +62,13 @@ commands.
 make            # build build/planckOS.iso
 make disk       # create an empty FAT12 disk.img (only if missing)
 make run        # boot it in QEMU; the serial log appears in your terminal
+```
+
+To talk to Iris, put her model on the disk first (`docs/TRAINING.md`):
+
+```sh
+make chat-model     # train her on this computer (about 40 minutes)
+make disk-models    # copy the model onto disk.img
 ```
 
 In the QEMU window, click the **planckOS** button at the bottom left to open
@@ -73,7 +92,8 @@ release it.
 | [EXEC](docs/EXEC.md) | Loading and running ELF programs, and how to write one |
 | [PROGRAMS_GUI](docs/PROGRAMS_GUI.md) | Windows for programs: system calls, callbacks, lifetime rules |
 | [ASSEMBLER](docs/ASSEMBLER.md) | The built-in assembler: syntax, two passes, x86 encoding, adding instructions |
-| [LLM](docs/LLM.md) | Language models: the transformer step by step, the file format, the x87 math |
+| [LLM](docs/LLM.md) | Language models: the transformer step by step, the file format, the x87 math, Iris's fact cards and tools |
+| [TRAINING](docs/TRAINING.md) | Training Iris, for beginners: what training is, `make chat-model`, the settings, retraining |
 | [ROADMAP](docs/ROADMAP.md) | What's done and good next steps |
 
 ## History
@@ -103,3 +123,10 @@ comes from SeaBIOS's VGA BIOS (GNU LGPL v3), see `src/gfx/font.c`.
   [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories)
   dataset (CDLA-Sharing-1.0). They're downloaded by `make models`, not
   stored in this repository.
+- Iris is trained with llama2.c's `train.py` (MIT license), SentencePiece
+  (Apache 2.0) and PyTorch (BSD-style), on conversations written for
+  planckOS (`training/my_chats.txt`, `training/my_tools.txt`); no public
+  dataset is used. `make chat-model` builds her model; it isn't stored in
+  this repository either. Details: `src/llm/CREDITS.md`.
+- Iris's portrait (`src/apps/iris_avatar.c`) is original pixel art made
+  for planckOS.
