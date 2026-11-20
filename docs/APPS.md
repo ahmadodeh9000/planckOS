@@ -34,7 +34,8 @@ waits for it.
 **What it does.** Runs the command shell (`shell/shell.c`) in a window.
 It's the same shell as text mode, with the same commands (`help`, `ls`,
 `cat`, `write`, `del`, `info`, `clear`, `echo`, `date`, `exec`, `asm`,
-`quit`). `exec` is explained in `EXEC.md` and `asm` in `ASSEMBLER.md`.
+`llm-test`, `quit`). `exec` is explained in `EXEC.md`, `asm` in
+`ASSEMBLER.md` and `llm-test` in `LLM.md`.
 
 **How it works.** The window keeps an 80x24 grid of characters and colors
 plus a cursor. That grid is a `console_t` sink (`lib/console.h`):

@@ -18,6 +18,7 @@
 #include "exec/program.h"
 #include "exec/progwin.h"
 #include "asm/asm.h"
+#include "llm/llm_test.h"
 #include "lib/string.h"
 
 #define CAT_BUF_SIZE        (512 * 16)  /* largest file 'cat' can show: 8 KB */
@@ -94,6 +95,7 @@ static void cmd_help(shell_t* sh, const char* args) {
         "  del <file>         - delete a file\n"
         "  exec <file>        - run an ELF program\n"
         "  asm <in> <out>     - assemble <in> into the program <out>\n"
+        "  llm-test           - check the language model against llama2.c\n"
         "  quit               - shutdown the os\n"
         "  help               - show this message\n");
 }
@@ -316,6 +318,25 @@ static void cmd_asm(shell_t* sh, const char* args) {
     }
 }
 
+/* llm-test [model tokenizer]: run the test model and compare with llama2.c.
+   Other files can be given to check that bad ones are refused cleanly. */
+static void cmd_llm_test(shell_t* sh, const char* args) {
+    char model[FAT12_NAME_MAX];
+    char tokenizer[FAT12_NAME_MAX];
+
+    if (!*args) {
+        llm_test(sh->con, NULL, NULL);
+        return;
+    }
+    const char* rest = split_word(args, model, FAT12_NAME_MAX);
+    const char* end = rest ? split_word(rest, tokenizer, FAT12_NAME_MAX) : NULL;
+    if (!end || !tokenizer[0] || *end) {
+        console_print(sh->con, "Usage: llm-test [<model> <tokenizer>]\n");
+        return;
+    }
+    llm_test(sh->con, model, tokenizer);
+}
+
 static void cmd_quit(shell_t* sh, const char* args) {
     (void)sh;
     (void)args;
@@ -335,6 +356,7 @@ static const shell_command commands[] = {
     { "del",   cmd_del   },
     { "exec",  cmd_exec  },
     { "asm",   cmd_asm   },
+    { "llm-test", cmd_llm_test },
 };
 
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))

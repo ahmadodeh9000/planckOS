@@ -35,6 +35,9 @@ subsystems, and `docs/` explains how each one works.
   turns NASM-style source into runnable programs, so you can write, build
   and run assembly entirely inside planckOS. Its output is checked byte for
   byte against NASM (`make asm-test`).
+- **Language models:** a port of llama2.c's `run.c` runs small Llama 2
+  models on the x87 FPU; `llm-test` checks it token for token against
+  llama2.c (`make models` downloads the test model)
 
 ## Build and run
 
@@ -70,6 +73,7 @@ release it.
 | [EXEC](docs/EXEC.md) | Loading and running ELF programs, and how to write one |
 | [PROGRAMS_GUI](docs/PROGRAMS_GUI.md) | Windows for programs: system calls, callbacks, lifetime rules |
 | [ASSEMBLER](docs/ASSEMBLER.md) | The built-in assembler: syntax, two passes, x86 encoding, adding instructions |
+| [LLM](docs/LLM.md) | Language models: the transformer step by step, the file format, the x87 math |
 | [ROADMAP](docs/ROADMAP.md) | What's done and good next steps |
 
 ## History
@@ -87,3 +91,15 @@ git checkout legacy/text-shell    # or as a branch you can build on
 
 GNU General Public License v3.0, see [LICENSE](LICENSE). The 8x16 font data
 comes from SeaBIOS's VGA BIOS (GNU LGPL v3), see `src/gfx/font.c`.
+
+## Credits
+
+- `src/llm/` is a port of `run.c` from
+  [llama2.c](https://github.com/karpathy/llama2.c) by Andrej Karpathy (MIT
+  license, see `src/llm/LICENSE.llama2c`).
+- The test model `stories260K` and its tokenizer come from
+  [karpathy/tinyllamas](https://huggingface.co/karpathy/tinyllamas) (MIT
+  license), trained on the
+  [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories)
+  dataset (CDLA-Sharing-1.0). They're downloaded by `make models`, not
+  stored in this repository.

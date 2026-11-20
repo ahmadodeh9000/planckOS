@@ -11,6 +11,8 @@
 #   make programs     build programs/*.c and copy them, plus the programs/*.asm
 #                     examples, onto disk.img (mtools)
 #   make asm-test     check the built-in assembler's bytes against NASM
+#   make models       download the test model into models/ (checksummed)
+#   make disk-models  copy the models in models/ onto disk.img (8.3 names)
 #   make clean        remove build/
 
 # ---- toolchain ---------------------------------------------------------
@@ -65,7 +67,7 @@ QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
               -drive file=$(DISK),format=raw,index=1,media=disk
 
 # ---- targets -----------------------------------------------------------
-.PHONY: all iso run run-headless disk programs asm-test clean
+.PHONY: all iso run run-headless disk programs asm-test models disk-models clean
 
 all: iso
 
@@ -116,6 +118,33 @@ programs: $(PROGRAMS) $(DISK)
 	    name=$$(basename $$file | tr a-z A-Z); \
 	    echo "mcopy $$file -> $(DISK):$$name"; \
 	    MTOOLS_SKIP_CHECK=1 mcopy -o -i $(DISK) $$file ::$$name || exit 1; \
+	done
+
+# Language models (docs/LLM.md). They are not in git: 'make models'
+# downloads the test model from karpathy/tinyllamas (MIT license) and checks
+# it against models/SHA256SUMS. 'make disk-models' copies whichever models
+# are in models/ onto the disk, under the 8.3 names the kernel uses.
+MODELS_URL  := https://huggingface.co/karpathy/tinyllamas/resolve/main/stories260K
+MODEL_FILES := models/stories260K.bin models/tok512.bin
+
+# local file:name on the disk
+DISK_MODELS := stories260K.bin:S260K.BIN tok512.bin:TOK512.BIN \
+               iris.bin:IRIS.BIN iris_tok.bin:IRISTOK.BIN
+
+models: $(MODEL_FILES)
+	cd models && shasum -a 256 -c SHA256SUMS
+
+$(MODEL_FILES):
+	curl -fL --retry 3 -o $@ $(MODELS_URL)/$(notdir $@)
+
+disk-models: $(DISK)
+	@for pair in $(DISK_MODELS); do \
+	    file=models/$$(echo $$pair | cut -d: -f1); \
+	    name=$$(echo $$pair | cut -d: -f2); \
+	    if [ -f $$file ]; then \
+	        echo "mcopy $$file -> $(DISK):$$name"; \
+	        MTOOLS_SKIP_CHECK=1 mcopy -o -i $(DISK) $$file ::$$name || exit 1; \
+	    fi; \
 	done
 
 # Builds the assembler in src/asm/ for this computer (HOST_CC), assembles

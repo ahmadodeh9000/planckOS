@@ -9,7 +9,8 @@
 | ISO builder | `i686-elf-grub` (gives `i686-elf-grub-mkrescue`) + `xorriso` | `grub-pc-bin`, `grub-common`, `xorriso`, `mtools` |
 | Emulator | `qemu` | `qemu-system-x86` |
 | FAT tools (for `make disk`) | built in (`hdiutil`, `newfs_msdos`) | `dosfstools` (`mkfs.fat`) |
-| Disk copy (for `make programs`) | `mtools` | `mtools` |
+| Disk copy (for `make programs`, `make disk-models`) | `mtools` | `mtools` |
+| Download (for `make models`) | `curl`, `shasum` (preinstalled) | `curl`, `shasum` (perl) |
 | Host C compiler (for `make asm-test`) | `cc` (Xcode command line tools) | `gcc` or `cc` |
 
 The Makefile uses `i686-elf-gcc` when it is on your `PATH`. Otherwise it falls
@@ -25,6 +26,8 @@ refuses to compile unless the target is 32-bit x86 (`__i386__`).
 | `make run-headless` | Same as `make run` but without a window. Handy for reading the serial log. |
 | `make disk` | Creates a blank 64 MB FAT12 `disk.img`, but only if it doesn't already exist. |
 | `make programs` | Builds every `programs/*.c` into `build/programs/*.elf` and copies each onto `disk.img` as `NAME.ELF`, plus the assembly examples `programs/*.asm` as `NAME.ASM` (see `EXEC.md`, `ASSEMBLER.md`). |
+| `make models` | Downloads the test language model (`stories260K.bin`, `tok512.bin`) into `models/` and checks its SHA-256 (see `LLM.md`). |
+| `make disk-models` | Copies the models in `models/` onto `disk.img` with 8.3 names (`S260K.BIN`, `TOK512.BIN`, ...). |
 | `make asm-test` | Builds the built-in assembler for your computer and checks that its bytes for `tests/asm/encoding.asm` are identical to `nasm -O0`'s (see `ASSEMBLER.md`). |
 | `make clean` | Deletes `build/`. |
 

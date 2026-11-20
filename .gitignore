@@ -12,3 +12,6 @@ build/
 
 # macOS
 .DS_Store
+
+# language models (make models / make chat-model), see models/README.md
+/models/*.bin
