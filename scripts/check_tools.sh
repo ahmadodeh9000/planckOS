@@ -18,9 +18,11 @@ need() {            # need <command> <brew package> <apt package>
 }
 
 # A compiler for 32-bit x86: the cross compiler, or gcc that can do -m32.
+# On macOS only the cross compiler: Apple's "gcc" is clang, which accepts
+# -m32 but can't link the kernel as an ELF file.
 compiler_ok() {
     command -v i686-elf-gcc >/dev/null 2>&1 && return 0
-    command -v gcc >/dev/null 2>&1 &&
+    [ "$(uname)" != Darwin ] && command -v gcc >/dev/null 2>&1 &&
         echo 'int x;' | gcc -m32 -c -x c - -o /dev/null >/dev/null 2>&1
 }
 
