@@ -6,7 +6,8 @@
 # For each file: if it's there and its SHA-256 matches models/MODELS.sha256,
 # nothing happens. Otherwise it's downloaded from <url> (to a .part file
 # first, so an interrupted download never looks finished) and checked
-# again. A wrong checksum or a failed download stops with a clear message.
+# again. A wrong checksum or a failed download stops with a clear message
+# and leaves no partial file behind.
 
 set -u
 dir=$1
@@ -37,6 +38,7 @@ for pair in "$@"; do
         echo "make models: couldn't download $name from"
         echo "    $url"
         echo "Are you online? Run 'make models' again when you are."
+        rm -f "$dir/$name.part"
         exit 1
     fi
     actual=$(sha256 "$dir/$name.part")
@@ -45,6 +47,7 @@ for pair in "$@"; do
         echo "    expected $expected"
         echo "    got      $actual"
         echo "The download may be damaged; run 'make models' again to retry."
+        rm -f "$dir/$name.part"
         exit 1
     fi
     mv "$dir/$name.part" "$dir/$name"
