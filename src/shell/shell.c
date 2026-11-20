@@ -8,6 +8,7 @@
  */
 #include "shell/shell.h"
 #include "shell/logo.h"
+#include "shell/shell_iris.h"
 #include "gui/event.h"
 #include "fs/fat12.h"
 #include "mm/kmalloc.h"
@@ -36,6 +37,7 @@ struct shell {
     console_t* con;
     char line[SHELL_LINE_MAX];
     uint32_t length;
+    shell_iris_t* iris;         /* a conversation with Iris, or NULL */
 };
 
 typedef struct {
@@ -95,6 +97,7 @@ static void cmd_help(shell_t* sh, const char* args) {
         "  del <file>         - delete a file\n"
         "  exec <file>        - run an ELF program\n"
         "  asm <in> <out>     - assemble <in> into the program <out>\n"
+        "  iris (or chat)     - talk to Iris, planckOS's assistant\n"
         "  llm-test           - check the language model against llama2.c\n"
         "  quit               - shutdown the os\n"
         "  help               - show this message\n");
@@ -337,6 +340,12 @@ static void cmd_llm_test(shell_t* sh, const char* args) {
     llm_test(sh->con, model, tokenizer);
 }
 
+/* iris: from now on, typed lines go to Iris until an empty line. */
+static void cmd_iris(shell_t* sh, const char* args) {
+    (void)args;
+    sh->iris = shell_iris_start(sh->con);
+}
+
 static void cmd_quit(shell_t* sh, const char* args) {
     (void)sh;
     (void)args;
@@ -357,6 +366,8 @@ static const shell_command commands[] = {
     { "exec",  cmd_exec  },
     { "asm",   cmd_asm   },
     { "llm-test", cmd_llm_test },
+    { "iris",  cmd_iris  },
+    { "chat",  cmd_iris  },
 };
 
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
@@ -374,15 +385,41 @@ static void shell_execute(shell_t* sh, const char* line) {
     console_print(sh->con, "Type 'help' for a list of commands.\n");
 }
 
-void shell_key(shell_t* sh, char key) {
-    if (key == '\n') {
-        console_putc(sh->con, '\n');
-        sh->line[sh->length] = '\0';
-        if (sh->length > 0) {
-            shell_execute(sh, sh->line);
+/* Enter: the line goes to Iris if a conversation is open, else it runs. */
+static void shell_enter(shell_t* sh) {
+    console_putc(sh->con, '\n');
+    sh->line[sh->length] = '\0';
+    sh->length = 0;
+    if (sh->iris) {
+        if (!shell_iris_line(sh->iris, sh->line)) {
+            shell_iris_end(sh->iris);
+            sh->iris = NULL;
+            shell_prompt(sh);
         }
-        sh->length = 0;
+        return;
+    }
+    if (sh->line[0]) {
+        shell_execute(sh, sh->line);
+    }
+    if (!sh->iris) {        /* 'iris' prints its own prompt */
         shell_prompt(sh);
+    }
+}
+
+bool shell_busy(const shell_t* sh) {
+    return sh->iris && shell_iris_busy(sh->iris);
+}
+
+bool shell_idle(shell_t* sh) {
+    return sh->iris && shell_iris_idle(sh->iris);
+}
+
+void shell_key(shell_t* sh, char key) {
+    if (shell_busy(sh)) {
+        return;     /* Iris is writing: wait for her */
+    }
+    if (key == '\n') {
+        shell_enter(sh);
     } else if (key == '\b') {
         if (sh->length > 0) {
             sh->length--;
@@ -404,6 +441,7 @@ shell_t* shell_create(console_t* con) {
     }
     sh->con = con;
     sh->length = 0;
+    sh->iris = NULL;
     console_clear(con);
     console_putc(con, '\n');
     shell_banner(sh);
@@ -412,6 +450,9 @@ shell_t* shell_create(console_t* con) {
 }
 
 void shell_destroy(shell_t* sh) {
+    if (sh->iris) {
+        shell_iris_end(sh->iris);
+    }
     kfree(sh);
 }
 
@@ -420,7 +461,16 @@ void shell_run(console_t* con) {
     event_t event;
 
     for (;;) {
-        event_wait(&event);
+        /* While Iris writes, work on her reply between keys instead of
+           sleeping until the next one. */
+        if (sh && shell_busy(sh)) {
+            shell_idle(sh);
+            if (!event_poll(&event)) {
+                continue;
+            }
+        } else {
+            event_wait(&event);
+        }
         if (sh && event.type == EVENT_KEY) {
             shell_key(sh, event.key);
         }

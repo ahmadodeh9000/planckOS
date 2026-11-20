@@ -34,8 +34,10 @@ waits for it.
 **What it does.** Runs the command shell (`shell/shell.c`) in a window.
 It's the same shell as text mode, with the same commands (`help`, `ls`,
 `cat`, `write`, `del`, `info`, `clear`, `echo`, `date`, `exec`, `asm`,
-`llm-test`, `quit`). `exec` is explained in `EXEC.md`, `asm` in
-`ASSEMBLER.md` and `llm-test` in `LLM.md`.
+`llm-test`, `iris`/`chat`, `quit`). `exec` is explained in `EXEC.md`,
+`asm` in `ASSEMBLER.md`, and `llm-test` and `iris` in `LLM.md`. While a
+command still has work to do (Iris writing a reply), the window gets
+idle work and calls `shell_idle()` once per main-loop pass.
 
 **How it works.** The window keeps an 80x24 grid of characters and colors
 plus a cursor. That grid is a `console_t` sink (`lib/console.h`):

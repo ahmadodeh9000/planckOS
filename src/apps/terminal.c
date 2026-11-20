@@ -114,7 +114,16 @@ static void terminal_paint(window_t* win) {
 static void terminal_key(window_t* win, char key) {
     terminal_state* t = win->data;
     shell_key(t->shell, key);
+    win->idle_work = shell_busy(t->shell);
     window_invalidate(win);
+}
+
+/* A command is still working (Iris writing): one more piece of it. */
+static bool terminal_idle(window_t* win) {
+    terminal_state* t = win->data;
+    bool more = shell_idle(t->shell);
+    window_invalidate(win);
+    return more;
 }
 
 static void terminal_close(window_t* win) {
@@ -149,5 +158,6 @@ void terminal_open(void) {
     win->data = t;
     win->on_paint = terminal_paint;
     win->on_key = terminal_key;
+    win->on_idle = terminal_idle;
     win->on_close = terminal_close;
 }

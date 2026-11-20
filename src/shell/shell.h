@@ -20,6 +20,12 @@ void shell_destroy(shell_t* sh);
 /* Feed one typed character: edits the line, or runs it on Enter. */
 void shell_key(shell_t* sh, char key);
 
+/* True while a command is still working (Iris writing a reply). */
+bool shell_busy(const shell_t* sh);
+
+/* Do one piece of that work. Returns true while more is left. */
+bool shell_idle(shell_t* sh);
+
 /* Text mode: run a shell on 'con', fed from the event queue, forever. */
 void shell_run(console_t* con);
 

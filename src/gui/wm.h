@@ -55,9 +55,8 @@ void window_set_title(window_t* win, const char* title);
 
 /* Call on_close, free the window and remove it from the screen, now.
    Safe from on_key and on_mouse, but NOT from on_paint, on_timer or
-   on_idle: the
-   window manager is walking the window list then, and would use the freed
-   window. Use window_request_close there. */
+   on_idle: the window manager is walking the window list then, and would
+   use the freed window. Use window_request_close there. */
 void window_close(window_t* win);
 
 /* Close the window at the start of the next frame, when nothing is using

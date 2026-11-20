@@ -214,6 +214,60 @@ text: byte tokens are named `<0x0A>` and become that byte.
 message, for example). The caller decides when to take the next step, so a
 GUI app can do one step per pass of the main loop.
 
+## Talking to Iris — `llm/chat.c`
+
+Iris is the chat model trained in `training/` (`TRAINING.md`), stored on
+the disk as `IRIS.BIN` and `IRISTOK.BIN`. She learned conversations in
+this exact format:
+
+```
+User: how do i list files
+Iris: `ls` lists the files on the disk with their sizes.
+User: thanks
+Iris: you're welcome! happy to help.
+```
+
+`chat.c` keeps a conversation going in that format, one token at a time:
+
+- `chat_send(chat, message)` feeds `User: <message>\nIris:` (the first
+  message starts the text, with BOS). Then each `chat_step()` runs the
+  model once; `chat_reply()` is the reply so far.
+- Her reply ends where she writes a newline, because in the training data
+  a newline after her line is always followed by the next `User:`. That
+  newline stays in the model, so the next message continues the text just
+  like in training. If she starts writing `User:` herself, or goes on for
+  64 tokens, the reply is cut there.
+- Everything she has read stays in the KV cache, so a new message only
+  costs its own tokens. The context holds 256 tokens. Before a message
+  that wouldn't fit (with 64 tokens kept free for her reply), the
+  conversation is rebuilt: the model starts over with as many of the latest
+  turns as fit, so the oldest ones are dropped. The same rebuild happens
+  after a reply that didn't end cleanly, so the context is always a
+  well-formed conversation.
+
+Every reply is logged to serial, which is how the speed was measured:
+
+```
+iris: replied in 3170 ms (21 tokens written, 34 of 256 context used)
+```
+
+**In the Terminal: `iris` (or `chat`).** `shell_iris.c` sends every typed
+line to Iris until an empty line, printing her reply as it grows. The
+Terminal window gets idle work (`GUI.md`), so the desktop stays usable
+while she writes; in text mode, `shell_run` works on her reply between
+key presses.
+
+```
+admin$ iris
+iris: waking up...
+iris> hi! ask me anything about planckOS. an empty line takes you back to the shell.
+you> who made you
+iris> planckOS was made by ahmad odeh.
+you>
+iris> bye!
+admin$
+```
+
 ## How the x87 math works
 
 There's no C library, so `lib/math.c` builds the functions the model needs
