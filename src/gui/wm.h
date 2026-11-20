@@ -26,6 +26,7 @@ struct window {
     surface_t surface;          /* content pixels; its size is the content size */
     bool dirty;                 /* content must be repainted (on_paint) */
     bool closing;               /* window_request_close: close at the next frame */
+    bool idle_work;             /* the app has work for on_idle (set it to start) */
     void* data;                 /* the app's own state */
 
     /* Callbacks, all optional (NULL = ignore). */
@@ -34,6 +35,11 @@ struct window {
     void (*on_mouse)(window_t* win, const event_t* e);  /* x, y relative to content */
     void (*on_close)(window_t* win);                    /* free win->data */
     void (*on_timer)(window_t* win);                    /* once a second */
+
+    /* Called once per main-loop pass while idle_work is true, instead of
+       the CPU sleeping. Do one small piece of work (one token for Iris)
+       and return; return false when there is nothing left to do. */
+    bool (*on_idle)(window_t* win);
 };
 
 /* Tell the window manager how big the desktop is (the screen minus the
@@ -48,7 +54,8 @@ window_t* window_create(const char* title, int width, int height);
 void window_set_title(window_t* win, const char* title);
 
 /* Call on_close, free the window and remove it from the screen, now.
-   Safe from on_key and on_mouse, but NOT from on_paint or on_timer: the
+   Safe from on_key and on_mouse, but NOT from on_paint, on_timer or
+   on_idle: the
    window manager is walking the window list then, and would use the freed
    window. Use window_request_close there. */
 void window_close(window_t* win);
@@ -77,6 +84,13 @@ window_t* wm_window_at(int index);
 /* Handle a mouse or key event. Returns true if the screen needs to be
    redrawn. */
 bool wm_handle_event(const event_t* e);
+
+/* True if any window has idle work (the main loop must not sleep). */
+bool wm_has_idle_work(void);
+
+/* Give every window with idle work one on_idle call. Returns true if one
+   of them asked to be repainted. */
+bool wm_idle(void);
 
 /* Paint dirty windows and draw all windows onto 'screen', bottom first. */
 void wm_draw(surface_t* screen);

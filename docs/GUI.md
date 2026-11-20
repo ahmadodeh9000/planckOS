@@ -13,8 +13,13 @@ framebuffer. The loop never returns:
 
 ```
 for (;;) {
-    event_wait(&event);                 // sleep (hlt) until input arrives
-    changed = dispatch(event);          // and every other queued event
+    if (a window has idle work) {
+        changed = wm_idle();            // one small piece of it, no sleeping
+    } else {
+        event_wait(&event);             // sleep (hlt) until input arrives
+        changed = dispatch(event);
+    }
+    changed |= dispatch(every other queued event);
     if (changed) {
         compose();                      // desktop, windows, taskbar, menu, cursor
         fb_present();                   // show the new frame
@@ -35,6 +40,16 @@ the launcher menu, and finally the mouse cursor.
 | `EVENT_MOUSE_MOVE` / `_UP` | the menu (for hover) and the window manager |
 | `EVENT_KEY` | the window manager, which passes it to the focused window |
 | `EVENT_TIMER` | the taskbar clock (`taskbar_update_clock`) and the window manager (every window's `on_timer`); the screen always redraws |
+
+*Idle work.* Some apps have long jobs: Iris writes a reply one token at
+a time, and a token takes tens of milliseconds. Doing the whole reply
+inside a key handler would freeze the desktop for seconds. Instead the app
+sets `win->idle_work = true` and gets an `on_idle` call per pass of the
+loop, doing one token each time. In between, the loop handles every
+queued event and redraws, so the mouse, dragging and the clock keep
+working while she writes. While any window has idle work, the loop doesn't
+`hlt`: there's work to do, so sleeping until the next interrupt would only
+slow it down.
 
 **Key functions.** `gui_main_loop()`. Everything else is static.
 
@@ -64,6 +79,7 @@ and handles focus, raising, dragging by the title bar and the close button.
 | `on_mouse(win, e)` | Press/release in the content, and moves while the button is held. `e->x/y` are relative to the content's top-left. |
 | `on_close(win)` | The window is closing: free `win->data`. |
 | `on_timer(win)` | Called once a second (on `EVENT_TIMER`). Call `window_invalidate` if the content should change. |
+| `idle_work`, `on_idle(win)` | While `idle_work` is true, `on_idle` is called once per main-loop pass. Do one small piece of work and return whether more is left (`false` clears `idle_work`). |
 
 All callbacks are optional.
 
@@ -106,13 +122,14 @@ All callbacks are optional.
 | `window_set_title(win, title)` | Change the title bar text. |
 | `window_invalidate(win)` | Repaint the content on the next frame. |
 | `wm_handle_event(e)` | Route an input event; returns whether the screen changed. |
+| `wm_has_idle_work()`, `wm_idle()` | Does any window have idle work; give each such window one `on_idle` call. |
 | `wm_draw(screen)` | Paint dirty windows and draw all of them. |
 
-**Closing safely.** `wm_draw` calls `on_paint`, and `wm_timer` calls
-`on_timer`, while walking the `windows[]` array. If one of those callbacks
+**Closing safely.** `wm_draw` calls `on_paint`, and `wm_timer` and
+`wm_idle` call `on_timer` and `on_idle`, while walking the `windows[]` array. If one of those callbacks
 called `window_close`, the window and its pixels would be freed while the
 loop is still using them (a use-after-free), and the array would shift
-under the loop. So callbacks that run inside those loops use
+under the loop. So callbacks that run inside those loops (paint, timer, idle) use
 `window_request_close(win)` instead. It only sets `win->closing`, and the
 first thing `wm_draw` does is close every window marked that way, before
 its loop starts. A marked window gets no more paint or timer calls until

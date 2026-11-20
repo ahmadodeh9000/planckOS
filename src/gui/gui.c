@@ -5,7 +5,9 @@
  *
  * The loop sleeps until an input event arrives, hands every queued event
  * to the taskbar or the window manager, and redraws only if something
- * changed. A frame is composed back to front: desktop, windows (bottom to
+ * changed. While a window has idle work (Iris writing a reply), it doesn't
+ * sleep: each pass does one piece of that work, then handles whatever
+ * input arrived meanwhile, so the mouse and windows keep responding. A frame is composed back to front: desktop, windows (bottom to
  * top), taskbar, launcher menu, mouse cursor.
  * Drawing happens here, in normal kernel context, never inside an
  * interrupt handler.
@@ -62,8 +64,13 @@ void gui_main_loop(void) {
     gui_compose(screen);
     fb_present();
     for (;;) {
-        event_wait(&event);
-        bool changed = gui_dispatch(&event);
+        bool changed = false;
+        if (wm_has_idle_work()) {
+            changed = wm_idle();
+        } else {
+            event_wait(&event);
+            changed = gui_dispatch(&event);
+        }
         while (event_poll(&event)) {
             changed |= gui_dispatch(&event);
         }

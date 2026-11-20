@@ -286,6 +286,28 @@ static bool wm_timer(void) {
     return changed;
 }
 
+bool wm_has_idle_work(void) {
+    for (int i = 0; i < window_count; i++) {
+        if (windows[i]->idle_work && windows[i]->on_idle && !windows[i]->closing) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool wm_idle(void) {
+    bool changed = false;
+
+    for (int i = 0; i < window_count; i++) {
+        window_t* win = windows[i];
+        if (win->idle_work && win->on_idle && !win->closing) {
+            win->idle_work = win->on_idle(win);
+            changed |= win->dirty;
+        }
+    }
+    return changed;
+}
+
 bool wm_handle_event(const event_t* e) {
     switch (e->type) {
         case EVENT_MOUSE_DOWN:
