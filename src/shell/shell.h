@@ -26,6 +26,10 @@ bool shell_busy(const shell_t* sh);
 /* Do one piece of that work. Returns true while more is left. */
 bool shell_idle(shell_t* sh);
 
+/* The line 'help' prints for 'command' ("cat <file>  - print file
+   contents"), or NULL if there is no such command. */
+const char* shell_help_line(const char* command);
+
 /* Text mode: run a shell on 'con', fed from the event queue, forever. */
 void shell_run(console_t* con);
 

@@ -268,6 +268,39 @@ iris> bye!
 admin$
 ```
 
+## Fact cards: retrieval in miniature — `apps/iris_facts.c`
+
+A model with a million parameters can say something wrong with complete
+confidence: a wrong file name in an example, a command that doesn't
+exist. For help with planckOS that's a problem, so Iris's answers come
+with **fact cards**: whenever your message names a shell command or an
+app, a small card under her reply shows the facts, taken from the source
+of truth instead of from the model.
+
+```
+you> what does cat do
+iris> `cat <file>` prints a file, for example `cat NOTES.TXT`.
+  cat <file>         - print file contents
+```
+
+For a command, the card is the exact line `help` prints:
+`shell_help_line()` looks it up in the same `help_lines[]` table that
+`cmd_help` prints from, so the card and `help` can never disagree. For an
+app, it's a fixed description in `app_facts[]`. The lookup is plain
+keyword matching: split the message into lowercase words and look each
+one up. There is no AI in it, so it can't be wrong in an interesting way.
+
+This is *retrieval* in miniature. Big AI assistants answer questions about
+things they weren't trained on by first searching documents and putting
+what they found next to the model's answer (or into its prompt): the
+facts come from the documents, the wording from the model. Here the
+"documents" are the help table, the "search" is a word lookup, and the
+result is shown next to her reply. Unlike her reply, the card is always
+right.
+
+Known limits: it matches words, not meaning, so "how do i write a
+program" also gets the card for `write`. At most 3 cards are shown.
+
 ## How the x87 math works
 
 There's no C library, so `lib/math.c` builds the functions the model needs

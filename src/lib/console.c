@@ -36,6 +36,34 @@ void console_print_rainbow(console_t* con, const char* text) {
     }
 }
 
+static void buffer_put_char(console_t* con, char c, uint8_t color) {
+    (void)color;
+    console_buffer_t* b = con->data;
+    if (c == '\b') {
+        if (b->length > 0) {
+            b->length--;
+        }
+    } else if (b->length + 1 < b->capacity) {
+        b->text[b->length++] = c;
+    }
+    b->text[b->length] = '\0';
+}
+
+static void buffer_clear(console_t* con) {
+    console_buffer_t* b = con->data;
+    b->length = 0;
+    b->text[0] = '\0';
+}
+
+void console_buffer_init(console_buffer_t* b, char* text, uint32_t capacity) {
+    b->console.put_char = buffer_put_char;
+    b->console.clear = buffer_clear;
+    b->console.data = b;
+    b->text = text;
+    b->capacity = capacity;
+    buffer_clear(&b->console);
+}
+
 static void console_print_signed(console_t* con, int32_t value) {
     char digits[NUMBER_MAX];
 

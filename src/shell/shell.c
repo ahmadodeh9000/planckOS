@@ -83,24 +83,42 @@ static void cmd_info(shell_t* sh, const char* args) {
     console_print(con, "********************************************\n");
 }
 
+/* The lines 'help' prints. Iris's fact cards show these same lines
+   (shell_help_line), so the two can never disagree. */
+static const char* const help_lines[] = {
+    "info               - show OS info",
+    "clear              - clear the screen",
+    "echo <text>        - print text on the screen",
+    "date               - show the date and time",
+    "ls                 - list files",
+    "cat <file>         - print file contents",
+    "write <file> <txt> - write text to file",
+    "del <file>         - delete a file",
+    "exec <file>        - run an ELF program",
+    "asm <in> <out>     - assemble <in> into the program <out>",
+    "iris (or chat)     - talk to Iris, planckOS's assistant",
+    "llm-test           - check the language model against llama2.c",
+    "quit               - shutdown the os",
+    "help               - show this message",
+};
+
+#define HELP_LINE_COUNT (sizeof(help_lines) / sizeof(help_lines[0]))
+
+const char* shell_help_line(const char* command) {
+    for (uint32_t i = 0; i < HELP_LINE_COUNT; i++) {
+        if (is_command(help_lines[i], command)) {
+            return help_lines[i];
+        }
+    }
+    return NULL;
+}
+
 static void cmd_help(shell_t* sh, const char* args) {
     (void)args;
-    console_print(sh->con,
-        "Available commands:\n"
-        "  info               - show OS info\n"
-        "  clear              - clear the screen\n"
-        "  echo <text>        - print text on the screen\n"
-        "  date               - show the date and time\n"
-        "  ls                 - list files\n"
-        "  cat <file>         - print file contents\n"
-        "  write <file> <txt> - write text to file\n"
-        "  del <file>         - delete a file\n"
-        "  exec <file>        - run an ELF program\n"
-        "  asm <in> <out>     - assemble <in> into the program <out>\n"
-        "  iris (or chat)     - talk to Iris, planckOS's assistant\n"
-        "  llm-test           - check the language model against llama2.c\n"
-        "  quit               - shutdown the os\n"
-        "  help               - show this message\n");
+    console_print(sh->con, "Available commands:\n");
+    for (uint32_t i = 0; i < HELP_LINE_COUNT; i++) {
+        console_printf(sh->con, "  %s\n", help_lines[i]);
+    }
 }
 
 static void cmd_clear(shell_t* sh, const char* args) {

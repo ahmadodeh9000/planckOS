@@ -13,16 +13,20 @@
  */
 #include "shell/shell_iris.h"
 #include "llm/chat.h"
+#include "apps/iris_facts.h"
 #include "mm/kmalloc.h"
 #include "lib/string.h"
 
 #define USER_PROMPT "you> "
 #define IRIS_PROMPT "iris> "
+#define CARD_MAX    512
+#define CARD_COLOR  CONSOLE_LIGHT_CYAN
 
 struct shell_iris {
     console_t* con;
     chat_t* chat;
     uint32_t printed;       /* bytes of the current reply already shown */
+    char message[CHAT_MESSAGE_MAX + 1];     /* what you asked, for fact cards */
 };
 
 shell_iris_t* shell_iris_start(console_t* con) {
@@ -67,6 +71,10 @@ bool shell_iris_line(shell_iris_t* session, const char* line) {
         return true;
     }
     session->printed = 0;
+    uint32_t n = strlen(line);
+    n = n < CHAT_MESSAGE_MAX ? n : CHAT_MESSAGE_MAX;
+    memcpy(session->message, line, n);
+    session->message[n] = '\0';
     console_print(session->con, IRIS_PROMPT);
     return true;
 }
@@ -81,10 +89,30 @@ static void print_new_text(shell_iris_t* session) {
     }
 }
 
+/* Fact cards for what the message named, one per line, in color. */
+static void print_cards(shell_iris_t* session) {
+    char cards[CARD_MAX];
+    console_buffer_t buffer;
+
+    console_buffer_init(&buffer, cards, CARD_MAX);
+    if (facts_print(session->message, &buffer.console) == 0) {
+        return;
+    }
+    console_t* con = session->con;
+    console_print(con, "\n  ");
+    for (const char* c = cards; *c; c++) {
+        con->put_char(con, *c, CARD_COLOR);
+        if (*c == '\n') {
+            console_print(con, "  ");      /* indent every card */
+        }
+    }
+}
+
 bool shell_iris_idle(shell_iris_t* session) {
     chat_step_t step = chat_step(session->chat);
     print_new_text(session);
     if (step == CHAT_STEP_DONE) {
+        print_cards(session);
         console_print(session->con, "\n" USER_PROMPT);
     }
     return chat_busy(session->chat);

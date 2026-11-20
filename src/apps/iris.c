@@ -10,6 +10,7 @@
  */
 #include "apps/iris.h"
 #include "apps/iris_avatar.h"
+#include "apps/iris_facts.h"
 #include "llm/chat.h"
 #include "gui/wm.h"
 #include "gui/widget.h"
@@ -33,14 +34,18 @@
 #define BLINK_PERIOD        120         /* ticks between blinks while thinking */
 #define BLINK_LENGTH        15          /* ticks the eyes stay closed */
 #define DOTS_PERIOD         40          /* ticks per "..." animation step */
+#define CARD_MAX            512         /* bytes of text under her reply */
+#define CARD_GAP            4           /* between her bubble and the card */
 
 #define COLOR_USER_BUBBLE   THEME_TITLE_ACTIVE
 #define COLOR_IRIS_BUBBLE   THEME_FIELD
 #define COLOR_BUBBLE_BORDER THEME_BUTTON_BORDER
+#define COLOR_CARD          THEME_BUTTON
 
 typedef struct {
     bool from_iris;
     char text[CHAT_REPLY_MAX];
+    char card[CARD_MAX];        /* fact cards under her reply, "" = none */
 } iris_message_t;
 
 typedef struct {
@@ -133,10 +138,20 @@ static const char* message_text(const iris_message_t* m) {
     return m->text;
 }
 
-static int message_height(const iris_message_t* m) {
+/* Height of a box holding 'text' wrapped to a bubble's width. */
+static int box_height(const char* text, bool from_iris, int* width) {
     int widest;
-    int lines = count_lines(message_text(m), bubble_columns(m->from_iris), &widest);
-    int height = lines * FONT_HEIGHT + 2 * BUBBLE_PADDING;
+    int lines = count_lines(text, bubble_columns(from_iris), &widest);
+    *width = widest * FONT_WIDTH + 2 * BUBBLE_PADDING;
+    return lines * FONT_HEIGHT + 2 * BUBBLE_PADDING;
+}
+
+static int message_height(const iris_message_t* m) {
+    int width;
+    int height = box_height(message_text(m), m->from_iris, &width);
+    if (m->card[0]) {
+        height += CARD_GAP + box_height(m->card, true, &width);
+    }
     return (m->from_iris && height < IRIS_PORTRAIT_SIZE) ? IRIS_PORTRAIT_SIZE : height;
 }
 
@@ -154,20 +169,31 @@ static const avatar_image_t* portrait(const iris_state* st, bool newest) {
     return &iris_portrait;
 }
 
+/* A box of text at (x, y) in a bubble's width; returns its height. */
+static int draw_box(surface_t* s, int x, int y, const char* text, uint32_t fill,
+                    uint32_t color) {
+    int w;
+    int h = box_height(text, true, &w);
+    rect_t r = { x, y, w, h };
+    draw_bubble(s, r, fill);
+    draw_wrapped(s, x + BUBBLE_PADDING, y + BUBBLE_PADDING, text, bubble_columns(true), color);
+    return h;
+}
+
 static void draw_message(surface_t* s, const iris_state* st, int index, int y) {
     const iris_message_t* m = &st->messages[index];
     const char* text = message_text(m);
     int columns = bubble_columns(m->from_iris);
-    int widest;
-    int lines = count_lines(text, columns, &widest);
-    int w = widest * FONT_WIDTH + 2 * BUBBLE_PADDING;
-    int h = lines * FONT_HEIGHT + 2 * BUBBLE_PADDING;
+    int w;
+    int h = box_height(text, m->from_iris, &w);
 
     if (m->from_iris) {
+        int x = PADDING + IRIS_PORTRAIT_SIZE + PORTRAIT_GAP;
         avatar_draw(s, PADDING, y, portrait(st, index == st->message_count - 1));
-        rect_t bubble = { PADDING + IRIS_PORTRAIT_SIZE + PORTRAIT_GAP, y, w, h };
-        draw_bubble(s, bubble, COLOR_IRIS_BUBBLE);
-        draw_wrapped(s, bubble.x + BUBBLE_PADDING, y + BUBBLE_PADDING, text, columns, THEME_TEXT);
+        int bubble_h = draw_box(s, x, y, text, COLOR_IRIS_BUBBLE, THEME_TEXT);
+        if (m->card[0]) {
+            draw_box(s, x, y + bubble_h + CARD_GAP, m->card, COLOR_CARD, THEME_TEXT);
+        }
     } else {
         rect_t bubble = { IRIS_WIDTH - PADDING - w, y, w, h };
         draw_bubble(s, bubble, COLOR_USER_BUBBLE);
@@ -210,6 +236,7 @@ static iris_message_t* add_message(iris_state* st, bool from_iris, const char* t
     iris_message_t* m = &st->messages[st->message_count++];
     m->from_iris = from_iris;
     strcpy(m->text, text);
+    m->card[0] = '\0';
     st->scroll = 0;
     return m;
 }
@@ -244,6 +271,16 @@ static void load_model(iris_state* st) {
                     CHAT_TOKENIZER_FILE " (make chat-model, then make disk-models).");
 }
 
+/* Her reply is complete: add fact cards for what your message named. */
+static void finish_reply(iris_state* st) {
+    iris_message_t* reply = &st->messages[st->message_count - 1];
+    const iris_message_t* question = &st->messages[st->message_count - 2];
+    console_buffer_t card;
+
+    console_buffer_init(&card, reply->card, CARD_MAX);
+    facts_print(question->text, &card.console);
+}
+
 static bool iris_idle(window_t* win) {
     iris_state* st = win->data;
     window_invalidate(win);
@@ -256,6 +293,9 @@ static bool iris_idle(window_t* win) {
     }
     chat_step_t step = chat_step(st->chat);
     strcpy(st->messages[st->message_count - 1].text, chat_reply(st->chat));
+    if (step == CHAT_STEP_DONE) {
+        finish_reply(st);
+    }
     return step != CHAT_STEP_DONE && step != CHAT_STEP_IDLE;
 }
 

@@ -45,6 +45,18 @@ void console_print_rainbow(console_t* con, const char* text);
 /* Supports %s %c %d %u %x and %%. */
 void console_printf(console_t* con, const char* fmt, ...);
 
+/* A sink that collects the text in a buffer instead of showing it, so
+   console_printf can format into a string. The text is always
+   '\0'-terminated; what doesn't fit is dropped. */
+typedef struct {
+    console_t console;
+    char* text;
+    uint32_t capacity;      /* bytes in 'text', including the '\0' */
+    uint32_t length;
+} console_buffer_t;
+
+void console_buffer_init(console_buffer_t* b, char* text, uint32_t capacity);
+
 /* The console that plain printf() writes to (kernel messages, syscalls). */
 void console_set_default(console_t* con);
 void printf(const char* fmt, ...);
