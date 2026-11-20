@@ -367,6 +367,11 @@ static fat12_status fat12_find(const char* name, uint32_t* cluster, uint32_t* si
     return index >= 0 ? FAT12_OK : FAT12_NOT_FOUND;
 }
 
+fat12_status fat12_size(const char* name, uint32_t* size) {
+    uint32_t cluster;
+    return fat12_find(name, &cluster, size);
+}
+
 fat12_status fat12_read(const char* name, uint8_t* buffer, uint32_t capacity, uint32_t* bytes_read) {
     uint32_t cluster;
     uint32_t size;

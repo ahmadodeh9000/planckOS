@@ -36,6 +36,9 @@ int fat12_list(fat12_file_t* files, int max);
    the number of bytes stored. */
 fat12_status fat12_read(const char* name, uint8_t* buffer, uint32_t capacity, uint32_t* bytes_read);
 
+/* Get a file's size in bytes without reading it (to size a buffer). */
+fat12_status fat12_size(const char* name, uint32_t* size);
+
 /* Create or overwrite a file. */
 fat12_status fat12_write(const char* name, const uint8_t* data, uint32_t size);
 
