@@ -1,4 +1,4 @@
-# Interrupts: GDT, IDT, PIC and system calls
+# Interrupts: GDT, IDT, PIC, FPU and system calls
 
 The CPU-level setup lives in `src/arch/`.
 
@@ -137,3 +137,34 @@ so don't draw or do slow work in it.
 **Known limits.** No spurious-IRQ (IRQ 7/15) detection. An exception in
 the kernel itself halts the machine. Page faults can't be handled (nothing
 is ever paged in on demand).
+
+## The x87 FPU — `arch/fpu.c`
+
+**What it does.** Turns on the floating-point unit, so kernel code can use
+`float` (the language model in `src/llm/` does).
+
+**How it works.** `fpu_init()`, at the end of `cpu_init`, sets three bits in
+`CR0`: it clears `EM` (otherwise every FPU instruction traps, so that an OS
+without an FPU could emulate it), sets `MP` (so `fwait` honors the
+task-switched bit) and sets `NE` (FPU errors become exception 16 instead of
+the old IRQ 13 wiring). Then `fninit` resets the FPU: every FPU exception
+masked (1/0 gives infinity instead of trapping), round to nearest, 64-bit
+internal precision. `kmain` then runs `math_self_test()`, which checks the
+functions in `lib/math.c` and logs `math: self-test passed (8 checks)`.
+
+**The rule: no floating point in IRQ handlers.** The interrupt stubs save
+the general registers (`pusha`), but not the FPU's eight registers and
+status (that would take `fsave`/`fxsave` and 108-512 bytes per
+interrupt). If a timer, keyboard or mouse handler used a `float`, it would
+overwrite the registers of whatever calculation it interrupted, and the
+model would silently compute garbage. Floats are fine everywhere that runs
+in normal kernel context: the GUI main loop, window callbacks, shell
+commands.
+
+**The math library — `lib/math.c`.** There is no C library, so `sqrtf`,
+`expf`, `logf`, `powf`, `sinf` and `cosf` are a few x87 instructions each
+(`LLM.md` explains how they're built from `fyl2x`, `f2xm1` and `fscale`).
+
+**Known limits.** No SSE (it would need `CR4.OSFXSR` and `fxsave`), so GCC
+compiles every `float` to x87 code. Once there is multitasking, each task
+needs its own saved FPU state.

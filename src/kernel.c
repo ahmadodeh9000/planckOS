@@ -9,6 +9,7 @@
 #include "arch/gdt.h"
 #include "arch/idt.h"
 #include "arch/multiboot.h"
+#include "arch/fpu.h"
 #include "mm/pmm.h"
 #include "mm/paging.h"
 #include "mm/kmalloc.h"
@@ -23,6 +24,7 @@
 #include "gui/gui.h"
 #include "shell/shell.h"
 #include "exec/elf.h"
+#include "lib/math.h"
 
 #if !defined(__i386__)
 #error "planckOS must be built for 32-bit x86 (i686-elf-gcc or gcc -m32)"
@@ -35,6 +37,9 @@ static void cpu_init(void) {
     serial_printf("idt: loaded, PIC remapped\n");
     timer_install();
     serial_printf("timer: PIT at %u Hz\n", TIMER_HZ);
+    fpu_init();
+    serial_printf("fpu: x87 on\n");
+    math_self_test();
     asm volatile("sti");
 }
 

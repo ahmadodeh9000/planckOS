@@ -19,7 +19,8 @@ boot/boot.s  start          set up an 8 KB stack, call kmain(magic, mbi)
 src/kernel.c kmain
    serial_init                  COM1 log, used by every later step
    console_set_default(vga)     where plain printf() goes
-   cpu_init                     GDT, IDT + PIC remap, PIT at 100 Hz, sti
+   cpu_init                     GDT, IDT + PIC remap, PIT at 100 Hz, sti,
+                                x87 FPU on + math self-test
    memory_init                  PMM bitmap -> paging (64 MB identity) -> 16 MB heap
                                 -> program area reserved (elf_init)
    storage_init                 ATA detect -> FAT12 (if a disk is there)
@@ -76,7 +77,8 @@ src/
   mm/           pmm (physical pages), paging, kmalloc (heap)
   drivers/      serial, timer (PIT), rtc, vga (text), keyboard, mouse, ata, power
   fs/           fat12
-  lib/          common types, string/memory helpers, console sinks + printf
+  lib/          common types, string/memory helpers, console sinks + printf,
+                float math on the x87 (sqrtf, expf, logf, ...)
   gfx/          surfaces (pixel drawing), framebuffer, font
   gui/          event queue, main loop, window manager, taskbar, menu,
                 widgets, cursor, theme

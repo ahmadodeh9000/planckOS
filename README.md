@@ -61,7 +61,7 @@ release it.
 | [BUILDING](docs/BUILDING.md) | Toolchain, make targets, running and debugging in QEMU |
 | [BOOT](docs/BOOT.md) | GRUB, the Multiboot header, the linker script, `kmain` |
 | [MEMORY](docs/MEMORY.md) | Physical memory manager, paging, the heap |
-| [INTERRUPTS](docs/INTERRUPTS.md) | GDT, IDT, PIC, system calls |
+| [INTERRUPTS](docs/INTERRUPTS.md) | GDT, IDT, PIC, the x87 FPU, system calls |
 | [DRIVERS](docs/DRIVERS.md) | Serial, timer, RTC, VGA, keyboard, mouse, ATA, FAT12, power |
 | [GRAPHICS](docs/GRAPHICS.md) | Framebuffer, surfaces, font |
 | [INPUT](docs/INPUT.md) | The event queue and how input reaches apps |
