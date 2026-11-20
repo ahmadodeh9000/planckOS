@@ -162,6 +162,48 @@ directory entry.
 **Known limits.** Up to 128 files are shown. Delete doesn't ask for
 confirmation.
 
+## Iris — `apps/iris.c`, `apps/iris_avatar.c`
+
+**What it does.** A chat window with Iris, planckOS's assistant (the
+model is explained in `LLM.md`, its training in `TRAINING.md`). Her
+messages appear next to her portrait, yours on the right in blue. Type in
+the box at the bottom and press Enter or **Send**. Up/Down scroll back
+through the conversation.
+
+**How it works.**
+
+- *Loading.* The window opens with `idle_work` set, so the first
+  `on_idle` call loads the model (`chat_open`). The window is already on
+  screen by then. If the files are missing or damaged, her first message
+  says so instead.
+- *Writing.* Send adds your message and an empty one for her, calls
+  `chat_send`, and sets `idle_work`. Every `on_idle` call is one
+  `chat_step` (one token), after which her message is updated from
+  `chat_reply()` and the window is repainted. So she writes word by word,
+  and between tokens the main loop handles input: windows can be dragged
+  and the clock keeps ticking while she writes. Until her first word, her
+  bubble shows animated dots.
+- *Blinking.* While she's working, `portrait()` shows the closed-eyes
+  frame for 15 ticks out of every 120 (`timer_ticks()`). Her newest
+  message is repainted after every token anyway, so the blink costs
+  nothing extra.
+- *Drawing the conversation.* Messages are drawn from the newest up,
+  starting just above the input box, until one is off the top. Each
+  bubble is as wide as its longest line; `wrap_line` breaks text at spaces
+  to fit. The input row is drawn last, over anything that scrolled under
+  it.
+- *Closing* frees the model (`chat_close`).
+
+**Her portrait.** `iris_avatar.c` holds three images: a 48x48 portrait,
+the same with her eyes closed, and a 16x16 icon of her face for the
+launcher and the taskbar. Each image is a list of strings, one per row,
+with one character per pixel; the character picks a color from the
+palette ('h' hair, 'g' green eyes, 'B' the theme blue of her top and hair
+clip) and '.' is transparent. To change the drawing, edit the letters.
+
+**Known limits.** The last 24 messages are kept. Long replies are cut at
+64 tokens. There's no text selection or copying.
+
 ## About — `apps/about.c`
 
 **What it does.** Shows the OS name and version, the kernel name, the

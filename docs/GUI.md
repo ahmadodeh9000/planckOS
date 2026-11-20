@@ -74,6 +74,7 @@ and handles focus, raising, dragging by the title bar and the close button.
 | `surface` | The content pixels. Its width/height is the content size. |
 | `dirty` | The content needs repainting. Set it with `window_invalidate()`. |
 | `data` | The app's own state, which the app allocates and frees. |
+| `draw_icon(s, x, y)` | Optional: draws a 16x16 icon for the taskbar button. |
 | `on_paint(win)` | Draw the content into `win->surface`. It starts cleared to the window background. |
 | `on_key(win, key)` | A key was typed while this window had focus. |
 | `on_mouse(win, e)` | Press/release in the content, and moves while the button is held. `e->x/y` are relative to the content's top-left. |
@@ -197,16 +198,21 @@ menu listing every registered app. Clicking an entry opens that app.
 
 ```c
 const app_entry app_list[] = {
-    { "Terminal",  terminal_open },
-    { "Files",     files_open },
-    { "Notepad",   notepad_open },
-    { "About",     about_open },
-    { "Shut down", power_off },
+    { "Terminal",  terminal_open, NULL },
+    { "Files",     files_open,    NULL },
+    { "Notepad",   notepad_open,  NULL },
+    { "Clock",     clock_open,    NULL },
+    { "About",     about_open,    NULL },
+    { "Iris",      iris_open,     iris_draw_icon },
+    { "Shut down", power_off,     NULL },
 };
 ```
 
-An entry is just a name and a `void (*)(void)`, so "Shut down" can call
-`power_off()` directly.
+An entry is just a name, a `void (*)(void)` and an optional icon, so
+"Shut down" can call `power_off()` directly. An icon is a function that
+draws 16x16 pixels at a given spot; the menu leaves room for one on every
+row so the names line up. A window can have one too (`win->draw_icon`),
+and the taskbar draws it on the window's button.
 
 The menu draws one 24 px row per entry, right above the launcher button,
 and highlights the row under the pointer (`menu_mouse_move`). Every mouse

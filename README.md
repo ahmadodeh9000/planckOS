@@ -26,7 +26,7 @@ subsystems, and `docs/` explains how each one works.
 - **Desktop:** event queue, window manager (z-order, focus, dragging,
   close), taskbar with clock, launcher menu, widget helpers
 - **Apps:** Terminal, Files, Notepad (cursor keys, line numbers,
-  scrolling), Clock, About, Shut down
+  scrolling), Clock, About, Iris (a chat assistant), Shut down
 - **Programs:** an ELF loader and an `exec` shell command that run
   programs from the disk. Programs can open their own windows, draw in
   them and react to keys, clicks and a timer through callbacks (examples:

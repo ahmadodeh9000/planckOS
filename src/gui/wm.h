@@ -28,6 +28,7 @@ struct window {
     bool closing;               /* window_request_close: close at the next frame */
     bool idle_work;             /* the app has work for on_idle (set it to start) */
     void* data;                 /* the app's own state */
+    void (*draw_icon)(surface_t* s, int x, int y);  /* 16x16 taskbar icon, or NULL */
 
     /* Callbacks, all optional (NULL = ignore). */
     void (*on_paint)(window_t* win);                    /* draw into win->surface */

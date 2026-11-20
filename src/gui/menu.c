@@ -12,6 +12,8 @@
 #define MENU_WIDTH      180
 #define ROW_HEIGHT      24
 #define TEXT_PADDING    10
+#define ICON_SIZE       16
+#define ICON_GAP        6       /* between the icon and the name */
 
 static bool open;
 static rect_t launcher;
@@ -71,7 +73,12 @@ void menu_draw(surface_t* screen) {
         if (i == hovered) {
             surface_fill_rect(screen, r.x, y, r.w, ROW_HEIGHT, THEME_SELECTION);
         }
-        font_draw_text(screen, r.x + TEXT_PADDING, y + (ROW_HEIGHT - FONT_HEIGHT) / 2,
+        /* Names line up whether or not an app has an icon. */
+        int text_x = r.x + TEXT_PADDING + ICON_SIZE + ICON_GAP;
+        if (app_list[i].draw_icon) {
+            app_list[i].draw_icon(screen, r.x + TEXT_PADDING, y + (ROW_HEIGHT - ICON_SIZE) / 2);
+        }
+        font_draw_text(screen, text_x, y + (ROW_HEIGHT - FONT_HEIGHT) / 2,
                        app_list[i].name, THEME_TEXT);
     }
     surface_draw_rect(screen, r.x, r.y, r.w, r.h, THEME_BORDER);

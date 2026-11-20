@@ -24,6 +24,8 @@
 #define WINDOW_BUTTON_WIDTH 150
 #define TEXT_PADDING        8
 #define MAX_TASK_BUTTONS    16
+#define ICON_SIZE           16
+#define ICON_GAP            6       /* between an icon and the title */
 #define CLOCK_GAP           "  "    /* "09 Nov 2026  14:57" */
 #define CLOCK_TEXT_LEN      (RTC_DAY_LEN + sizeof(CLOCK_GAP) - 1 + RTC_CLOCK_LEN)
 
@@ -93,13 +95,19 @@ bool taskbar_mouse_down(const event_t* e) {
     return true;
 }
 
-/* Draw a taskbar button with 'label', cut short to fit. */
-static void taskbar_button(surface_t* screen, rect_t r, const char* label, uint32_t color) {
-    int max_chars = (r.w - 2 * TEXT_PADDING) / FONT_WIDTH;
+/* Draw a taskbar button with an optional icon and 'label', cut short to fit. */
+static void taskbar_button(surface_t* screen, rect_t r, const char* label, uint32_t color,
+                           void (*draw_icon)(surface_t* s, int x, int y)) {
+    int text_x = r.x + TEXT_PADDING;
 
     surface_fill_rect(screen, r.x, r.y, r.w, r.h, color);
+    if (draw_icon) {
+        draw_icon(screen, text_x, r.y + (r.h - ICON_SIZE) / 2);
+        text_x += ICON_SIZE + ICON_GAP;
+    }
+    int max_chars = (r.x + r.w - TEXT_PADDING - text_x) / FONT_WIDTH;
     for (int i = 0; label[i] && i < max_chars; i++) {
-        font_draw_char(screen, r.x + TEXT_PADDING + i * FONT_WIDTH,
+        font_draw_char(screen, text_x + i * FONT_WIDTH,
                        r.y + (r.h - FONT_HEIGHT) / 2, label[i], THEME_TEXT_LIGHT);
     }
 }
@@ -110,10 +118,10 @@ void taskbar_draw(surface_t* screen) {
     window_t* focused = wm_focused();
 
     surface_fill_rect(screen, bar.x, bar.y, bar.w, bar.h, THEME_TASKBAR);
-    taskbar_button(screen, launcher_button(), OS_NAME, THEME_TASKBAR_ACTIVE);
+    taskbar_button(screen, launcher_button(), OS_NAME, THEME_TASKBAR_ACTIVE, NULL);
     for (int i = 0; i < count; i++) {
         uint32_t color = list[i] == focused ? THEME_TASKBAR_ACTIVE : THEME_TASKBAR_BUTTON;
-        taskbar_button(screen, window_button(i), list[i]->title, color);
+        taskbar_button(screen, window_button(i), list[i]->title, color, list[i]->draw_icon);
     }
 
     font_draw_text(screen, bar.w - (CLOCK_TEXT_LEN + 1) * FONT_WIDTH,
