@@ -83,16 +83,21 @@ subtraction can't wrap, so there is no way to sneak past it.
 
 ## The `exec` command
 
-`cmd_exec` in `shell/shell.c` puts the pieces together:
+`cmd_exec` in `shell/shell.c` calls `exec_file(name, console)` in
+`exec/exec.c`, which puts the pieces together. The Iris app's Run button
+(under an app she made) calls the same function.
 
-1. **Read the file.** `shell_read_program` allocates a 1 MB + 1 byte buffer
-   and reads the file into it with `fat12_read`. The extra byte tells it
-   whether the file was bigger than the 1 MB limit.
+0. **Check the windows.** If another program still has windows open,
+   loading would overwrite the code they call, so it refuses (see
+   `PROGRAMS_GUI.md`).
+1. **Read the file.** `read_program` gets the size with `fat12_size`,
+   refuses files over 1 MB (`EXEC_MAX_FILE`), allocates exactly that much
+   and reads the file with `fat12_read`.
 2. **Load it.** `elf_load(image, size)` checks the file and copies its
    segments into the program area. The buffer is freed right after,
    because the program now lives in the program area and the buffer isn't
    needed while it runs.
-3. **Run it.** `program_run(entry, sh->con)` calls the program and returns
+3. **Run it.** `program_run(entry, con)` calls the program and returns
    how it ended.
 4. **Report.** A crash prints the exception's name, and a non-zero exit
    code is printed. A normal exit with code 0 prints nothing extra.
@@ -112,7 +117,7 @@ A program is just a function at its entry point. There are no processes:
 stack, like any C function. Its return value is its exit code.
 
 ```
-cmd_exec -> program_run -> program_call -> entry()      normal return
+exec_file -> program_run -> program_call -> entry()     normal return
                                              |
                                              +-> int 0x80 -> isr_handler
                                              |      -> syscall_handler -> SYS_EXIT

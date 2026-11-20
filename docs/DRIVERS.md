@@ -344,6 +344,7 @@ the GUI apps share the driver.
 |----------|---------|
 | `fat12_init()` | Read and sanity-check the BPB, then load the FAT. Without a valid volume every other call returns `FAT12_NO_DISK`. |
 | `fat12_list(files, max)` | Fill an array of `{ name, size }` with the root directory's files; returns the count. |
+| `fat12_space(&total, &free)` | Bytes of the data area in total and free (whole clusters), by counting free FAT entries. |
 | `fat12_size(name, &size)` | A file's size, without reading it (to allocate a buffer first). |
 | `fat12_read(name, buf, capacity, &bytes_read)` | Read up to `capacity` bytes. |
 | `fat12_write(name, data, size)` | Create or overwrite. |

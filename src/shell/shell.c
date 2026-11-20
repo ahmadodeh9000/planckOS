@@ -14,10 +14,7 @@
 #include "mm/kmalloc.h"
 #include "drivers/power.h"
 #include "drivers/rtc.h"
-#include "arch/idt.h"
-#include "exec/elf.h"
-#include "exec/program.h"
-#include "exec/progwin.h"
+#include "exec/exec.h"
 #include "asm/asm.h"
 #include "llm/llm_test.h"
 #include "lib/string.h"
@@ -28,7 +25,6 @@
 #define SHELL_LINE_MAX      256
 #define PRINTABLE_FIRST     ' '
 #define PRINTABLE_LAST      '~'
-#define EXEC_MAX_FILE       (1024 * 1024)   /* largest program file 'exec' reads: 1 MB */
 #define ASM_MAX_SOURCE      (64 * 1024)     /* largest source file 'asm' reads */
 #define ASM_MAX_OUTPUT      (64 * 1024)     /* largest program 'asm' writes */
 #define KB                  1024
@@ -243,43 +239,12 @@ static uint8_t* shell_read_file(shell_t* sh, const char* command, const char* na
 }
 
 /* exec <file>: load an ELF program and run it until it ends. */
-static void shell_report_exit(shell_t* sh, const char* name, program_result_t result) {
-    if (result.crashed) {
-        console_printf(sh->con, "exec: %s crashed: %s\n", name,
-                       idt_exception_name(result.exception));
-        progwin_program_crashed();      /* windows it opened can't be trusted */
-    } else if (result.exit_code != 0) {
-        console_printf(sh->con, "exec: %s exited with code %u\n", name, result.exit_code);
-    }
-}
-
 static void cmd_exec(shell_t* sh, const char* args) {
     if (!*args) {
         console_print(sh->con, "Usage: exec <file>\n");
         return;
     }
-    /* Loading would overwrite the code that the open windows call into. */
-    const char* owner = progwin_owner();
-    if (owner) {
-        console_printf(sh->con, "exec: close %s's windows first\n", owner);
-        return;
-    }
-    uint32_t size;
-    uint8_t* image = shell_read_file(sh, "exec", args, EXEC_MAX_FILE, &size);
-    if (!image) {
-        return;
-    }
-
-    uint32_t entry = elf_load(image, size);
-    kfree(image);       /* the program now lives in the program area */
-    if (!entry) {
-        console_printf(sh->con, "exec: %s is not a valid planckOS program "
-                                "(the serial log says why)\n", args);
-        return;
-    }
-
-    progwin_set_owner(args);
-    shell_report_exit(sh, args, program_run(entry, sh->con));
+    exec_file(args, sh->con);
 }
 
 /* Copy the first word of 'args' into 'word' (at most max - 1 characters)

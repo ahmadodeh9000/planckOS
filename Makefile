@@ -67,7 +67,7 @@ QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
               -drive file=$(DISK),format=raw,index=1,media=disk
 
 # ---- targets -----------------------------------------------------------
-.PHONY: all iso run run-headless disk programs asm-test models disk-models clean
+.PHONY: all iso run run-headless disk programs asm-test templates-test models disk-models clean
 
 all: iso
 
@@ -161,6 +161,29 @@ asm-test:
 	nasm -O0 -f bin -I tests/asm/ -o $(ASM_TEST)/nasm.bin tests/asm/nasm.asm
 	cmp $(ASM_TEST)/planck.bin $(ASM_TEST)/nasm.bin
 	@echo "asm-test: identical to NASM ($$(wc -c < $(ASM_TEST)/nasm.bin | tr -d ' ') bytes)"
+
+# Fills in every Iris app template (src/apps/iris_templates.c) with every
+# color and with tricky titles, assembles each with the built-in assembler
+# and with NASM, and compares the bytes (docs/LLM.md, "Tools"). NASM's copy
+# gets 'strict near' on conditional jumps, as in tests/asm: NASM would pick
+# the short form, which the planckOS assembler never uses.
+TEMPLATES_TEST := $(BUILD)/templates-test
+
+templates-test:
+	@mkdir -p $(TEMPLATES_TEST)
+	$(HOST_CC) -std=c99 -Wall -Wextra -Itests/asm/host -Isrc \
+	    -o $(TEMPLATES_TEST)/fill tests/iris/templates_test.c src/apps/iris_templates.c
+	$(HOST_CC) -std=c99 -Wall -Wextra -Itests/asm/host -Isrc \
+	    -o $(TEMPLATES_TEST)/asm_host tests/asm/asm_host.c $(wildcard src/asm/*.c)
+	$(TEMPLATES_TEST)/fill $(TEMPLATES_TEST)
+	@for src in $(TEMPLATES_TEST)/*.asm; do \
+	    $(TEMPLATES_TEST)/asm_host $$src $${src%.asm}.planck || exit 1; \
+	    sed -E 's/^( +j[a-ln-z][a-z]*) /\1 strict near /' $$src > $${src%.asm}.for-nasm; \
+	    printf 'bits 32\norg 0x2000054\n%%include "%s"\n' $${src%.asm}.for-nasm > $${src%.asm}.wrap; \
+	    nasm -O0 -f bin -o $${src%.asm}.nasm $${src%.asm}.wrap || exit 1; \
+	    cmp $${src%.asm}.planck $${src%.asm}.nasm || exit 1; \
+	done
+	@echo "templates-test: $$(ls $(TEMPLATES_TEST)/*.asm | wc -l | tr -d ' ') filled-in templates identical to NASM"
 
 $(BUILD)/programs/%.elf: programs/%.c programs/planck.h programs/program.ld
 	@mkdir -p $(dir $@)

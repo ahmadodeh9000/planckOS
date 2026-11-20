@@ -367,6 +367,21 @@ static fat12_status fat12_find(const char* name, uint32_t* cluster, uint32_t* si
     return index >= 0 ? FAT12_OK : FAT12_NOT_FOUND;
 }
 
+fat12_status fat12_space(uint32_t* total, uint32_t* free) {
+    if (!ready) {
+        return FAT12_NO_DISK;
+    }
+    uint32_t free_clusters = 0;
+    for (uint32_t i = FAT12_FIRST_CLUSTER; i < total_clusters + FAT12_FIRST_CLUSTER; i++) {
+        if (fat12_get(i) == FAT12_FREE) {
+            free_clusters++;
+        }
+    }
+    *total = total_clusters * cluster_size;
+    *free = free_clusters * cluster_size;
+    return FAT12_OK;
+}
+
 fat12_status fat12_size(const char* name, uint32_t* size) {
     uint32_t cluster;
     return fat12_find(name, &cluster, size);

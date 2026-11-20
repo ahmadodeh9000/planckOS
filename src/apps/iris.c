@@ -11,6 +11,9 @@
 #include "apps/iris.h"
 #include "apps/iris_avatar.h"
 #include "apps/iris_facts.h"
+#include "apps/iris_tools.h"
+#include "exec/exec.h"
+#include "drivers/serial.h"
 #include "llm/chat.h"
 #include "gui/wm.h"
 #include "gui/widget.h"
@@ -36,6 +39,9 @@
 #define DOTS_PERIOD         40          /* ticks per "..." animation step */
 #define CARD_MAX            512         /* bytes of text under her reply */
 #define CARD_GAP            4           /* between her bubble and the card */
+#define RUN_WIDTH           64          /* the Run button under a new app */
+#define RUN_HEIGHT          24
+#define RUN_OUTPUT_MAX      256
 
 #define COLOR_USER_BUBBLE   THEME_TITLE_ACTIVE
 #define COLOR_IRIS_BUBBLE   THEME_FIELD
@@ -45,7 +51,9 @@
 typedef struct {
     bool from_iris;
     char text[CHAT_REPLY_MAX];
-    char card[CARD_MAX];        /* fact cards under her reply, "" = none */
+    char card[CARD_MAX];        /* fact cards or tool details, "" = none */
+    char program[FAT12_NAME_MAX];   /* an app she made: show a Run button */
+    rect_t run_button;          /* where it was drawn (for clicks) */
 } iris_message_t;
 
 typedef struct {
@@ -129,10 +137,11 @@ static void draw_wrapped(surface_t* s, int x, int y, const char* text, int colum
     }
 }
 
-/* What a message shows: "..." (animated) while she hasn't written yet. */
+/* What a message shows: "..." (animated) while she hasn't written yet,
+   or while she's writing a tool tag, which gets replaced by its result. */
 static const char* message_text(const iris_message_t* m) {
     static const char* dots[] = { ".", "..", "..." };
-    if (m->from_iris && m->text[0] == '\0') {
+    if (m->from_iris && (m->text[0] == '\0' || m->text[0] == '[')) {
         return dots[(timer_ticks() / DOTS_PERIOD) % 3];
     }
     return m->text;
@@ -151,6 +160,9 @@ static int message_height(const iris_message_t* m) {
     int height = box_height(message_text(m), m->from_iris, &width);
     if (m->card[0]) {
         height += CARD_GAP + box_height(m->card, true, &width);
+    }
+    if (m->program[0]) {
+        height += CARD_GAP + RUN_HEIGHT;
     }
     return (m->from_iris && height < IRIS_PORTRAIT_SIZE) ? IRIS_PORTRAIT_SIZE : height;
 }
@@ -180,8 +192,8 @@ static int draw_box(surface_t* s, int x, int y, const char* text, uint32_t fill,
     return h;
 }
 
-static void draw_message(surface_t* s, const iris_state* st, int index, int y) {
-    const iris_message_t* m = &st->messages[index];
+static void draw_message(surface_t* s, iris_state* st, int index, int y) {
+    iris_message_t* m = &st->messages[index];
     const char* text = message_text(m);
     int columns = bubble_columns(m->from_iris);
     int w;
@@ -190,9 +202,14 @@ static void draw_message(surface_t* s, const iris_state* st, int index, int y) {
     if (m->from_iris) {
         int x = PADDING + IRIS_PORTRAIT_SIZE + PORTRAIT_GAP;
         avatar_draw(s, PADDING, y, portrait(st, index == st->message_count - 1));
-        int bubble_h = draw_box(s, x, y, text, COLOR_IRIS_BUBBLE, THEME_TEXT);
+        y += draw_box(s, x, y, text, COLOR_IRIS_BUBBLE, THEME_TEXT) + CARD_GAP;
         if (m->card[0]) {
-            draw_box(s, x, y + bubble_h + CARD_GAP, m->card, COLOR_CARD, THEME_TEXT);
+            y += draw_box(s, x, y, m->card, COLOR_CARD, THEME_TEXT) + CARD_GAP;
+        }
+        if (m->program[0]) {
+            rect_t run = { x, y, RUN_WIDTH, RUN_HEIGHT };
+            m->run_button = run;
+            widget_button(s, run, "Run");
         }
     } else {
         rect_t bubble = { IRIS_WIDTH - PADDING - w, y, w, h };
@@ -203,9 +220,13 @@ static void draw_message(surface_t* s, const iris_state* st, int index, int y) {
 }
 
 /* Newest at the bottom: walk back from the last message until the top. */
-static void draw_messages(surface_t* s, const iris_state* st) {
+static void draw_messages(surface_t* s, iris_state* st) {
     int bottom = input_rect().y - PADDING + st->scroll;
 
+    /* Only buttons drawn in this frame can be clicked. */
+    for (int i = 0; i < st->message_count; i++) {
+        st->messages[i].run_button = (rect_t){ 0, 0, 0, 0 };
+    }
     for (int i = st->message_count - 1; i >= 0 && bottom > 0; i--) {
         int top = bottom - message_height(&st->messages[i]);
         draw_message(s, st, i, top);
@@ -237,6 +258,8 @@ static iris_message_t* add_message(iris_state* st, bool from_iris, const char* t
     m->from_iris = from_iris;
     strcpy(m->text, text);
     m->card[0] = '\0';
+    m->program[0] = '\0';
+    m->run_button = (rect_t){ 0, 0, 0, 0 };
     st->scroll = 0;
     return m;
 }
@@ -271,14 +294,30 @@ static void load_model(iris_state* st) {
                     CHAT_TOKENIZER_FILE " (make chat-model, then make disk-models).");
 }
 
-/* Her reply is complete: add fact cards for what your message named. */
+/* Her reply is complete. If it's a tool tag (or the keyword fallback
+   spots an obvious request), the tool's result replaces it; otherwise
+   fact cards are added for what your message named. */
 static void finish_reply(iris_state* st) {
     iris_message_t* reply = &st->messages[st->message_count - 1];
     const iris_message_t* question = &st->messages[st->message_count - 2];
-    console_buffer_t card;
+    console_buffer_t bubble, card;
+    tool_call_t call;
+    tool_env_t env = { true, "" };
 
     console_buffer_init(&card, reply->card, CARD_MAX);
-    facts_print(question->text, &card.console);
+    tool_source_t source = tool_choose(question->text, reply->text, &call);
+    if (source == TOOL_FROM_MODEL || source == TOOL_FROM_FALLBACK) {
+        if (source == TOOL_FROM_FALLBACK) {
+            serial_printf("iris: the keyword fallback picked the tool for \"%s\"\n", question->text);
+        }
+        console_buffer_init(&bubble, reply->text, CHAT_REPLY_MAX);
+        tool_run(&call, &env, &bubble.console, &card.console);
+        strcpy(reply->program, env.program);
+    } else if (source == TOOL_FROM_BAD_TAG) {
+        strcpy(reply->text, TOOL_BAD_TAG_REPLY);
+    } else {
+        facts_print(question->text, &card.console);
+    }
 }
 
 static bool iris_idle(window_t* win) {
@@ -315,11 +354,31 @@ static void iris_key(window_t* win, char key) {
     window_invalidate(win);
 }
 
-static void iris_mouse(window_t* win, const event_t* e) {
-    if (e->type == EVENT_MOUSE_DOWN && rect_contains(send_rect(), e->x, e->y)) {
-        iris_send(win);
-        window_invalidate(win);
+/* Run an app she made. Its window opens; any error becomes her message. */
+static void run_program(iris_state* st, const char* program) {
+    char output[RUN_OUTPUT_MAX];
+    console_buffer_t buffer;
+    console_buffer_init(&buffer, output, sizeof(output));
+    if (!exec_file(program, &buffer.console) && output[0]) {
+        add_message(st, true, output);
     }
+}
+
+static void iris_mouse(window_t* win, const event_t* e) {
+    iris_state* st = win->data;
+    if (e->type != EVENT_MOUSE_DOWN) {
+        return;
+    }
+    if (rect_contains(send_rect(), e->x, e->y)) {
+        iris_send(win);
+    }
+    for (int i = 0; i < st->message_count; i++) {
+        if (st->messages[i].program[0] && rect_contains(st->messages[i].run_button, e->x, e->y)) {
+            run_program(st, st->messages[i].program);
+            break;
+        }
+    }
+    window_invalidate(win);
 }
 
 static void iris_close(window_t* win) {

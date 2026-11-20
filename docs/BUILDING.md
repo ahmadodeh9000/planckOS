@@ -29,6 +29,7 @@ refuses to compile unless the target is 32-bit x86 (`__i386__`).
 | `make models` | Downloads the test language model (`stories260K.bin`, `tok512.bin`) into `models/` and checks its SHA-256 (see `LLM.md`). |
 | `make disk-models` | Copies the models in `models/` onto `disk.img` with 8.3 names (`S260K.BIN`, `TOK512.BIN`, ...). |
 | `make asm-test` | Builds the built-in assembler for your computer and checks that its bytes for `tests/asm/encoding.asm` are identical to `nasm -O0`'s (see `ASSEMBLER.md`). |
+| `make templates-test` | Fills in every Iris app template with every color, assembles each with the built-in assembler and with NASM, and compares the bytes (see "Tools" in `LLM.md`). |
 | `make clean` | Deletes `build/`. |
 
 You can attach a different disk with `make run DISK=other.img`. The same

@@ -14,6 +14,7 @@
 #include "shell/shell_iris.h"
 #include "llm/chat.h"
 #include "apps/iris_facts.h"
+#include "apps/iris_tools.h"
 #include "mm/kmalloc.h"
 #include "lib/string.h"
 
@@ -79,28 +80,27 @@ bool shell_iris_line(shell_iris_t* session, const char* line) {
     return true;
 }
 
-/* Print the part of the reply that's new since the last call. */
+/* Print the part of the reply that's new since the last call. A tool tag
+   isn't printed: its result is, when the reply is done. */
 static void print_new_text(shell_iris_t* session) {
     const char* reply = chat_reply(session->chat);
     uint32_t length = strlen(reply);
+    if (reply[0] == '[') {
+        return;
+    }
     if (length > session->printed) {
         console_print(session->con, reply + session->printed);
         session->printed = length;
     }
 }
 
-/* Fact cards for what the message named, one per line, in color. */
-static void print_cards(shell_iris_t* session) {
-    char cards[CARD_MAX];
-    console_buffer_t buffer;
-
-    console_buffer_init(&buffer, cards, CARD_MAX);
-    if (facts_print(session->message, &buffer.console) == 0) {
+/* A card (tool details or facts): indented, in color. */
+static void print_card(console_t* con, const char* card) {
+    if (!card[0]) {
         return;
     }
-    console_t* con = session->con;
     console_print(con, "\n  ");
-    for (const char* c = cards; *c; c++) {
+    for (const char* c = card; *c; c++) {
         con->put_char(con, *c, CARD_COLOR);
         if (*c == '\n') {
             console_print(con, "  ");      /* indent every card */
@@ -108,11 +108,33 @@ static void print_cards(shell_iris_t* session) {
     }
 }
 
+/* Her reply is done: run a tool if she (or the fallback) picked one,
+   otherwise show fact cards. Same rules as the Iris app. */
+static void finish_reply(shell_iris_t* session) {
+    char bubble[CHAT_REPLY_MAX], card[CARD_MAX];
+    console_buffer_t bubble_buffer, card_buffer;
+    tool_call_t call;
+    tool_env_t env = { false, "" };
+
+    console_buffer_init(&bubble_buffer, bubble, sizeof(bubble));
+    console_buffer_init(&card_buffer, card, sizeof(card));
+    tool_source_t source = tool_choose(session->message, chat_reply(session->chat), &call);
+    if (source == TOOL_FROM_MODEL || source == TOOL_FROM_FALLBACK) {
+        tool_run(&call, &env, &bubble_buffer.console, &card_buffer.console);
+        console_print(session->con, bubble);
+    } else if (source == TOOL_FROM_BAD_TAG) {
+        console_print(session->con, TOOL_BAD_TAG_REPLY);
+    } else {
+        facts_print(session->message, &card_buffer.console);
+    }
+    print_card(session->con, card);
+}
+
 bool shell_iris_idle(shell_iris_t* session) {
     chat_step_t step = chat_step(session->chat);
     print_new_text(session);
     if (step == CHAT_STEP_DONE) {
-        print_cards(session);
+        finish_reply(session);
         console_print(session->con, "\n" USER_PROMPT);
     }
     return chat_busy(session->chat);

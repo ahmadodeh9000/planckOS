@@ -192,9 +192,13 @@ through the conversation.
   bubble is as wide as its longest line; `wrap_line` breaks text at spaces
   to fit. The input row is drawn last, over anything that scrolled under
   it.
-- *Fact cards.* When her reply is done, `finish_reply` looks up the
-  commands and apps your message named (`facts_print`, see "Fact cards" in
-  `LLM.md`) and shows them in a gray card under her bubble. The text is
+- *Tools and fact cards.* When her reply is done, `finish_reply` asks
+  `tool_choose` whether it was a tool tag (or an obvious request the
+  keyword fallback recognizes). If so, the tool's answer replaces the tag
+  in her bubble, its details go in a gray card under it, and an app she
+  made gets a **Run** button (see "Tools" in `LLM.md`). Otherwise it looks
+  up the commands and apps your message named (`facts_print`, see "Fact
+  cards") and shows them in the card. The text is
   formatted with `console_printf` into a `console_buffer_t`, a console
   sink that writes into a string.
 - *Closing* frees the model (`chat_close`).

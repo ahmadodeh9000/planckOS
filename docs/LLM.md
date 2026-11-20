@@ -301,6 +301,129 @@ right.
 Known limits: it matches words, not meaning, so "how do i write a
 program" also gets the card for `write`. At most 3 cards are shown.
 
+## Tools: Iris picks a tool, planckOS does the work
+
+Files: `apps/iris_tools.c` (reading tags, the keyword fallback),
+`apps/iris_actions.c` (running the tools), `apps/iris_templates.c` (the
+app templates), `training/my_tools.txt` (how she learned them).
+
+**What tool use is.** Ask a language model "how much space is left on my
+disk?" and it can only make up a number: it has never seen your disk. Big
+assistants solve this with *tool use*: instead of answering, the model
+writes a request ("call the disk tool"), a program outside the model runs
+it, and the real result is shown. Iris does the same in miniature. For
+some requests she answers with a **tag** instead of words:
+
+| Tag | What planckOS does |
+|-----|--------------------|
+| `[disk]` | used, free and total space (`fat12_space`), and the number of files |
+| `[memory]` | RAM in use (`pmm_stats`) and the heap (`heap_stats`) |
+| `[time]` | the date and time from the RTC, and the uptime |
+| `[files]` | the files with their sizes (the first 10) |
+| `[find "x"]` | files whose name contains x, and text files (64 KB at most) that contain x, with the matching line |
+| `[open "NAME"]` | opens the file in Notepad |
+| `[make-app counter title="Taps" color=red]` | builds a small app from a template (below) |
+
+The Iris app shows the tool's answer in her bubble and the details in a
+card under it; the tag itself is never shown (while she writes it, her
+bubble shows dots). In the Terminal (`iris`), the same happens in text;
+`[open]` suggests `cat` there, since the Terminal can't open Notepad.
+
+**How the tags are trained.** `training/my_tools.txt` maps many ways of
+asking to each tag:
+
+```
+User: how much storage is left
+User: is my disk full
+User: am i running out of space
+Iris: [disk]
+
+User: find {word}
+User: search my files for {word}
+Iris: [find "{word}"]
+```
+
+`prepare_data.py` fills `{word}`, `{title}`, `{color}`, ... with random
+values, a different one for each example, about a third of them made-up
+words like "bofira". She can't memorize those, so she has to learn to
+*copy* what you typed into the tag, letter by letter. The tool examples
+are mixed into the same random conversations as normal chat, so she
+learns when a tag is the right answer and when words are.
+
+**How tags are read** (`tool_parse`). A reply is a tag only if it is
+exactly one of the forms above: `[`, a known name, the right arguments
+(a quoted value for `find`/`open`; a template name and `key=value` or
+`key="value"` slots for `make-app`), `]`, and nothing else. Anything else
+that starts with `[` is a bad tag, and you get "i didn't get that, try
+rephrasing or type `help`." instead.
+
+**Trust, but check** (`tool_choose`). A tiny model makes two kinds of
+mistakes with tools: it misses the tag (a chatty answer to "how much space
+is left"), or it copies a value wrong (`[find "back"]` for "find banana").
+So a tag is only used if every value in it also appears in your message.
+Otherwise, or when there's no tag, the **keyword fallback**
+(`tool_route`) looks for obvious requests: "find ..."/"search for ...",
+"open NAME.EXT", "make/create ... counter/clock/box/button", and words
+like *space*, *storage*, *memory*, *ram*, *time*, *date*. Questions
+about how something works ("how do i ...", "what does ... do") are left
+to Iris. When the fallback steps in, the serial log says so. When
+neither finds a tool, her reply is shown as she wrote it, with fact cards.
+
+**Why templates instead of generated code.** A model with a million
+parameters can't write working assembly, and even a big model's code
+needs checking: generated code can do anything, and planckOS runs programs
+in ring 0 with no protection. So Iris never writes code. She picks one of
+five tested templates and fills in its slots:
+
+| Template | Slots | The app |
+|----------|-------|---------|
+| `message` | title, text, color | a window with a message |
+| `box` | title, color, size (small/medium/large) | a colored box |
+| `counter` | title, color | click the box, the count goes up |
+| `clock` | title, color | a digital clock, updated every second |
+| `button` | title, text, color | a button that switches color when clicked |
+
+`template_fill` checks every value before it touches the program: the
+template and the color must be in its tables, titles must be 1 to 20
+printable characters and texts 1 to 32 (20 on a button), and a slot the
+template doesn't have is refused. Texts go inside `db "..."`, so a `"`
+in a text could end the string early and turn the rest into code. It is
+written as its byte value between two strings instead
+(`db "say ", 34, "hi", 34`). Only then are the values pasted in, the
+program is assembled with the built-in assembler (`asm_assemble`), and
+`NAME.ASM` and `NAME.ELF` are saved. `NAME` comes from the title
+(`Taps` -> `TAPS`); if `TAPS.ASM` or `TAPS.ELF` already exists, it
+becomes `TAPS2`, then `TAPS3`, so she never overwrites your files.
+
+Nothing runs by itself. Her answer shows the start of the code and a
+**Run** button; the program starts only when you press it (`exec_file`,
+the same as the `exec` command). `NAME.ASM` is ordinary assembly with
+comments, so you can open it in Notepad, change it, and rebuild it with
+`asm NAME.ASM NAME.ELF`. If a template ever failed to assemble, that
+would be a bug in the template: you'd see the assembler's error, and the
+serial log would say `iris: template for NAME doesn't assemble`.
+`make templates-test` guards against that: it fills in every template
+with every color and with titles full of quotes and semicolons,
+assembles each with the built-in assembler and with NASM, and compares the
+bytes (55 programs).
+
+**Adding a tool.**
+
+1. A `TOOL_*` value in `iris_tools.h` and its name in `kind_of()`
+   (`iris_tools.c`). If it takes a value, read it in `read_arguments`.
+2. A `run_*` function in `iris_actions.c` that prints a short answer to
+   `bubble` and details to `card`, and a `case` in `tool_run`.
+3. Examples in `training/my_tools.txt`, many phrasings per tag, then
+   `make chat-model` and `make disk-models`.
+4. Optionally, keywords in `tool_route` so the fallback catches it too.
+
+**Adding a template.** Write the program as a C string in
+`iris_templates.c` with `{TITLE}`, `{TEXT}`, `{COLOR}`, `{INK}`,
+`{WIDTH}`, `{HEIGHT}` where the values go (see the existing ones: the
+`HEADER` and `OPEN_WINDOW` pieces are shared), add a row to `templates[]`
+with its slots and defaults, run `make templates-test`, and add examples
+to `my_tools.txt`.
+
 ## How the x87 math works
 
 There's no C library, so `lib/math.c` builds the functions the model needs
@@ -340,6 +463,8 @@ about two million of them per token.
 
 ## Known limits
 
+- Tools can only do what the tags describe: no arguments beyond the
+  slots, one tool per reply.
 - No top-p sampling (it needs a sort); argmax and plain temperature only.
 - The model must fit in the 16 MB heap, next to the 3 MB screen buffer and
   the windows: the file is loaded whole, plus the KV cache.

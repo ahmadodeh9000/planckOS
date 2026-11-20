@@ -36,6 +36,10 @@ int fat12_list(fat12_file_t* files, int max);
    the number of bytes stored. */
 fat12_status fat12_read(const char* name, uint8_t* buffer, uint32_t capacity, uint32_t* bytes_read);
 
+/* Bytes in the data area of the disk, and how many of them are free.
+   Space is handed out in whole clusters, so a 1-byte file takes one. */
+fat12_status fat12_space(uint32_t* total, uint32_t* free);
+
 /* Get a file's size in bytes without reading it (to size a buffer). */
 fat12_status fat12_size(const char* name, uint32_t* size);
 
