@@ -5,15 +5,18 @@
 #
 #   make              build build/planckOS.iso (does not start QEMU)
 #   make iso          same as make
-#   make run          boot the ISO in QEMU with disk.img attached
-#   make run-headless boot without a window; serial output goes to stdout
+#   make run          everything: check the tools, build, create disk.img if
+#                     needed, get the models, copy what changed onto the disk,
+#                     and boot it in QEMU
+#   make run-headless the same without a window; serial output goes to stdout
 #   make disk         create a blank FAT12 disk.img if it does not exist
 #   make programs     build programs/*.c and copy them, plus the programs/*.asm
 #                     examples, onto disk.img (mtools)
 #   make asm-test     check the built-in assembler's bytes against NASM
-#   make models       download the test model into models/ (checksummed)
-#   make disk-models  copy the models in models/ onto disk.img (8.3 names)
+#   make models       download the models that are missing or wrong (checksummed)
+#   make disk-models  copy the models onto disk.img, replacing what's there
 #   make chat-model   train Iris, the chat model, on this computer (training/)
+#   make publish-model  upload a retrained Iris to the GitHub release (maintainer)
 #   make clean        remove build/
 
 # ---- toolchain ---------------------------------------------------------
@@ -68,7 +71,8 @@ QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
               -drive file=$(DISK),format=raw,index=1,media=disk
 
 # ---- targets -----------------------------------------------------------
-.PHONY: all iso run run-headless disk programs asm-test templates-test iris-eval models disk-models chat-model clean
+.PHONY: all iso run run-headless ready check-tools disk programs disk-sync asm-test \
+        templates-test iris-eval models disk-models chat-model publish-model clean
 
 all: iso
 
@@ -91,11 +95,22 @@ $(BUILD)/%.s.o: %.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-run: $(ISO) $(DISK)
+# 'make run' does everything a fresh clone needs, in this order: check the
+# tools (before touching anything), build the ISO, create disk.img if it's
+# missing, build the example programs, get the models, copy onto the disk
+# what changed, boot. The second make guarantees that order.
+run: check-tools
+	@$(MAKE) --no-print-directory ready
 	$(QEMU) $(QEMU_FLAGS)
 
-run-headless: $(ISO) $(DISK)
+run-headless: check-tools
+	@$(MAKE) --no-print-directory ready
 	$(QEMU) $(QEMU_FLAGS) -display none
+
+ready: $(ISO) disk-sync
+
+check-tools:
+	@sh scripts/check_tools.sh
 
 # Only creates the disk when it is missing, so an existing disk.img (and the
 # files on it) is never overwritten.
@@ -112,41 +127,48 @@ else
 	mkfs.fat -F 12 -s $(DISK_SECTORS_PER_CLUSTER) -n PLANCK $@
 endif
 
+# Language models (docs/LLM.md). They are not in git: Iris's model and
+# tokenizer are assets of the GitHub release $(RELEASE_TAG), the test model
+# stories260K comes from karpathy/tinyllamas (MIT license). 'make models'
+# downloads whatever is missing or doesn't match models/MODELS.sha256.
+RELEASE_TAG   := iris-v1
+RELEASE_URL   := https://github.com/ahmadodeh9000/planckOS/releases/download/$(RELEASE_TAG)
+MODELS_URL    := https://huggingface.co/karpathy/tinyllamas/resolve/main/stories260K
+MODEL_SOURCES := iris.bin=$(RELEASE_URL)/iris.bin iris_tok.bin=$(RELEASE_URL)/iris_tok.bin \
+                 stories260K.bin=$(MODELS_URL)/stories260K.bin tok512.bin=$(MODELS_URL)/tok512.bin
+
+# What goes onto the disk: models/<file>:<8.3 name>, and the example programs.
+DISK_MODELS := models/iris.bin:IRIS.BIN models/iris_tok.bin:IRISTOK.BIN \
+               models/stories260K.bin:S260K.BIN models/tok512.bin:TOK512.BIN
+DISK_FILES  := $(DISK_MODELS) $(PROGRAMS) $(PROG_ASM)
+DISK_STAMPS := $(BUILD)/disk-sync
+
+models:
+	@sh scripts/get_models.sh models $(MODEL_SOURCES)
+
+# Copies onto the disk only what changed since the last copy, and never
+# over a file that planckOS didn't put there (scripts/sync_disk.sh).
+disk-sync: $(DISK) $(PROGRAMS) models
+	@sh scripts/sync_disk.sh $(DISK) $(DISK_STAMPS) $(DISK_FILES)
+
+programs: $(PROGRAMS) $(DISK)
+	@sh scripts/sync_disk.sh $(DISK) $(DISK_STAMPS) $(PROGRAMS) $(PROG_ASM)
+
+# Copies the models onto the disk even if the disk has other files with
+# those names: for when you want to replace an older Iris on purpose.
 # MTOOLS_SKIP_CHECK: mtools otherwise rejects disks whose size isn't a
 # multiple of the classic floppy geometry, which ours needn't be.
-programs: $(PROGRAMS) $(DISK)
-	@for file in $(PROGRAMS) $(PROG_ASM); do \
-	    name=$$(basename $$file | tr a-z A-Z); \
+disk-models: $(DISK) models
+	@for pair in $(DISK_MODELS); do \
+	    file=$${pair%%:*}; name=$${pair##*:}; \
 	    echo "mcopy $$file -> $(DISK):$$name"; \
 	    MTOOLS_SKIP_CHECK=1 mcopy -o -i $(DISK) $$file ::$$name || exit 1; \
 	done
 
-# Language models (docs/LLM.md). They are not in git: 'make models'
-# downloads the test model from karpathy/tinyllamas (MIT license) and checks
-# it against models/SHA256SUMS. 'make disk-models' copies whichever models
-# are in models/ onto the disk, under the 8.3 names the kernel uses.
-MODELS_URL  := https://huggingface.co/karpathy/tinyllamas/resolve/main/stories260K
-MODEL_FILES := models/stories260K.bin models/tok512.bin
-
-# local file:name on the disk
-DISK_MODELS := stories260K.bin:S260K.BIN tok512.bin:TOK512.BIN \
-               iris.bin:IRIS.BIN iris_tok.bin:IRISTOK.BIN
-
-models: $(MODEL_FILES)
-	cd models && shasum -a 256 -c SHA256SUMS
-
-$(MODEL_FILES):
-	curl -fL --retry 3 -o $@ $(MODELS_URL)/$(notdir $@)
-
-disk-models: $(DISK)
-	@for pair in $(DISK_MODELS); do \
-	    file=models/$$(echo $$pair | cut -d: -f1); \
-	    name=$$(echo $$pair | cut -d: -f2); \
-	    if [ -f $$file ]; then \
-	        echo "mcopy $$file -> $(DISK):$$name"; \
-	        MTOOLS_SKIP_CHECK=1 mcopy -o -i $(DISK) $$file ::$$name || exit 1; \
-	    fi; \
-	done
+# For the maintainer, after 'make chat-model': uploads Iris to the release
+# and updates models/MODELS.sha256 (commit it afterwards).
+publish-model: models/iris.bin models/iris_tok.bin
+	sh scripts/publish_model.sh $(RELEASE_TAG) models iris.bin iris_tok.bin
 
 # Iris, the chat model (docs/TRAINING.md). Trains on this computer with
 # llama2.c's train.py (pinned below).

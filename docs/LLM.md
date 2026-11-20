@@ -18,22 +18,26 @@ come next. Pick one, feed it back in, and repeat: that's how it writes.
 
 ## Getting a model onto the disk
 
-The model files aren't in git. `make models` downloads `stories260K`, a
-test model with 260 thousand parameters trained on the TinyStories
-dataset, from [karpathy/tinyllamas](https://huggingface.co/karpathy/tinyllamas)
-(MIT license) and checks it against `models/SHA256SUMS`. `make
-disk-models` copies everything that's in `models/` onto the disk with 8.3
-names:
+The model files aren't in git. `make run` takes care of them: it calls
+`make models`, which downloads whatever is missing (Iris from the GitHub
+release `iris-v1`, and `stories260K`, a test model with 260 thousand
+parameters trained on the TinyStories dataset, from
+[karpathy/tinyllamas](https://huggingface.co/karpathy/tinyllamas), MIT
+license) and checks each file against `models/MODELS.sha256`. Then it
+copies them onto the disk with 8.3 names, only when they changed and never
+over a file of yours (`scripts/sync_disk.sh`):
 
 | In `models/` | On the disk |
 |--------------|-------------|
+| `iris.bin` | `IRIS.BIN` |
+| `iris_tok.bin` | `IRISTOK.BIN` |
 | `stories260K.bin` | `S260K.BIN` |
 | `tok512.bin` | `TOK512.BIN` |
 
-```sh
-make models
-make disk-models            # or: make disk-models DISK=other.img
-```
+`make disk-models` copies them even over files with the same names, for
+when you want to replace an older model on purpose (also `make disk-models
+DISK=other.img`). If Iris can't find her model, her window says so and
+tells you to run `make models` and restart.
 
 ## Checking the port: `llm-test`
 

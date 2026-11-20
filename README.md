@@ -51,29 +51,43 @@ counter app she made from a template:
   checks the disk, memory and time, finds and opens files, and makes small
   apps from tested templates
 
-## Build and run
-
-You need `i686-elf-gcc` (or `gcc` with 32-bit support), `nasm`,
-`grub-mkrescue` (`i686-elf-grub-mkrescue` on macOS), `xorriso` and
-`qemu-system-i386`. See [docs/BUILDING.md](docs/BUILDING.md) for install
-commands.
+## Quick start
 
 ```sh
-make            # build build/planckOS.iso
-make disk       # create an empty FAT12 disk.img (only if missing)
-make run        # boot it in QEMU; the serial log appears in your terminal
+git clone https://github.com/ahmadodeh9000/planckOS.git
+cd planckOS
+make run
 ```
 
-To talk to Iris, put her model on the disk first (`docs/TRAINING.md`):
+`make run` does everything: it checks that the tools below are installed
+(and says exactly what to install if one isn't), builds planckOS, creates
+`disk.img`, downloads Iris's model (checked by SHA-256), copies the model
+and the example programs onto the disk, and boots it in QEMU. Run it again
+any time: it only rebuilds, downloads and copies what changed, and it
+never overwrites files you made on the disk.
 
-```sh
-make chat-model     # train her on this computer (about 40 minutes)
-make disk-models    # copy the model onto disk.img
-```
+Then click the **planckOS** button at the bottom left and choose **Iris**
+to talk to the assistant, or **Terminal** to type commands. Click inside
+the QEMU window to capture the mouse, and press Ctrl+Alt+G to release it.
 
-In the QEMU window, click the **planckOS** button at the bottom left to open
-apps. Click inside the window to capture the mouse, and press Ctrl+Alt+G to
-release it.
+**Install these first:**
+
+- **macOS** ([Homebrew](https://brew.sh)):
+  ```sh
+  brew install i686-elf-gcc i686-elf-grub nasm xorriso qemu mtools
+  ```
+- **Linux** (Debian, Ubuntu):
+  ```sh
+  sudo apt install gcc gcc-multilib nasm grub-pc-bin grub-common xorriso qemu-system-x86 mtools dosfstools curl
+  ```
+- **Windows:** install [WSL2](https://learn.microsoft.com/windows/wsl/install)
+  with Ubuntu, then use the Linux command inside it. QEMU's window opens
+  through WSLg on Windows 11; on Windows 10, use `make run-headless`.
+
+`make run-headless` does the same without a window (the serial log appears
+in your terminal). [docs/BUILDING.md](docs/BUILDING.md) lists every make
+target. To teach Iris new things and retrain her yourself, see
+[docs/TRAINING.md](docs/TRAINING.md).
 
 ## Documentation
 
@@ -126,7 +140,9 @@ comes from SeaBIOS's VGA BIOS (GNU LGPL v3), see `src/gfx/font.c`.
 - Iris is trained with llama2.c's `train.py` (MIT license), SentencePiece
   (Apache 2.0) and PyTorch (BSD-style), on conversations written for
   planckOS (`training/my_chats.txt`, `training/my_tools.txt`); no public
-  dataset is used. `make chat-model` builds her model; it isn't stored in
-  this repository either. Details: `src/llm/CREDITS.md`.
+  dataset is used. The trained model is published as assets of the GitHub
+  release `iris-v1` under the GNU GPL v3, like the rest of planckOS, and
+  `make models` downloads it; it isn't stored in this repository. Details:
+  `models/README.md` and `src/llm/CREDITS.md`.
 - Iris's portrait (`src/apps/iris_avatar.c`) is original pixel art made
   for planckOS.

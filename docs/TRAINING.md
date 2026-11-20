@@ -14,7 +14,7 @@ what the model does once it's trained.
 ```sh
 # edit training/my_chats.txt (and training/my_tools.txt), then:
 make chat-model     # about 45 minutes on an M1 Mac
-make disk-models    # copy models/iris.bin and models/iris_tok.bin onto disk.img
+make disk-models    # replace the model on disk.img with your new one
 make iris-eval      # optional: sample chats and the tool score, on the Mac
 make run            # open Iris from the planckOS menu
 ```
@@ -202,7 +202,21 @@ make disk-models
 ```
 
 `make chat-model` starts from scratch every time and takes about the same
-time. Then `make iris-eval` shows her answers to the sample conversations
+time. (`make disk-models` is needed because `make run` never overwrites
+an `IRIS.BIN` it didn't put on the disk itself, and a model you trained
+is different from the published one.)
+
+**Sharing a retrained Iris.** Everyone else gets the model from the GitHub
+release `iris-v1` (`make models`). To publish a new one (maintainer only):
+
+```sh
+make publish-model                       # uploads models/iris*.bin to the release
+git add models/MODELS.sha256 && git commit -m "models: publish the retrained Iris"
+```
+
+`make publish-model` uses the GitHub CLI (`gh`, logged in), replaces the
+release's assets and writes the new checksums into `models/MODELS.sha256`;
+`make models` refuses files that don't match it, so commit it right away. Then `make iris-eval` shows her answers to the sample conversations
 in `tests/iris/sample_chats.txt` and scores the tools, before you boot.
 
 **Tips.** More phrasings help more than more facts. Keep answers short:

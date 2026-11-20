@@ -70,7 +70,9 @@ Makefile        build rules, see BUILDING.md
 programs/       example programs for 'exec': hello.c, planck.h, program.ld,
                 and hello.asm, loop.asm for the built-in assembler
 tests/asm/      'make asm-test': compares the assembler's bytes with NASM's
-models/         language models (downloaded or trained, not in git), SHA256SUMS
+models/         language models (downloaded or trained, not in git), MODELS.sha256
+scripts/        shell scripts behind make run: check_tools, get_models,
+                sync_disk, publish_model
 src/
   kernel.c      kmain: brings everything up in order
   arch/         CPU-specific: GDT, IDT/PIC, interrupt stubs, port I/O,
