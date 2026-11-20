@@ -211,7 +211,7 @@ palette ('h' hair, 'g' green eyes, 'B' the theme blue of her top and hair
 clip) and '.' is transparent. To change the drawing, edit the letters.
 
 **Known limits.** The last 24 messages are kept. Long replies are cut at
-64 tokens. There's no text selection or copying.
+96 tokens. There's no text selection or copying.
 
 ## About — `apps/about.c`
 

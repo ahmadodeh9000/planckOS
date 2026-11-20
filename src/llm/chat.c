@@ -21,8 +21,8 @@
 #include "drivers/serial.h"
 
 #define CHAT_HISTORY        8       /* turns remembered for rebuilding */
-#define REPLY_TOKENS_MAX    64      /* a reply this long is cut off */
-#define REPLY_RESERVE       64      /* context kept free for her reply */
+#define REPLY_TOKENS_MAX    96      /* a reply this long is cut off (her longest is ~80) */
+#define REPLY_RESERVE       96      /* context kept free for her reply */
 #define CHAT_TEMPERATURE    0.3f    /* mostly the likeliest words, a little variety */
 #define TURN_EXTRA          16      /* room for "User: ", "\nIris: " and '\n' */
 #define NEXT_SPEAKER        "User:"

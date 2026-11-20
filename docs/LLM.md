@@ -236,10 +236,11 @@ Iris: you're welcome! happy to help.
   a newline after her line is always followed by the next `User:`. That
   newline stays in the model, so the next message continues the text just
   like in training. If she starts writing `User:` herself, or goes on for
-  64 tokens, the reply is cut there.
+  96 tokens (her longest trained answer is about 80), the reply is cut
+  there.
 - Everything she has read stays in the KV cache, so a new message only
   costs its own tokens. The context holds 256 tokens. Before a message
-  that wouldn't fit (with 64 tokens kept free for her reply), the
+  that wouldn't fit (with 96 tokens kept free for her reply), the
   conversation is rebuilt: the model starts over with as many of the latest
   turns as fit, so the oldest ones are dropped. The same rebuild happens
   after a reply that didn't end cleanly, so the context is always a
