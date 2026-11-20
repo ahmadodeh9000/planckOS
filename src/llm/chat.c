@@ -74,6 +74,23 @@ void chat_close(chat_t* chat) {
     }
 }
 
+const char* chat_open_problem(llm_status status) {
+    switch (status) {
+        case LLM_NO_FILE:
+            return "i can't find my brain file (" CHAT_MODEL_FILE " on the disk). run `make models` "
+                   "on your computer and restart planckOS.";
+        case LLM_NO_MEMORY:
+            return "there isn't enough memory for my brain right now. close a window or "
+                   "the Terminal's `iris` and try again.";
+        case LLM_BAD_MODEL:
+        case LLM_BAD_TOKENIZER:
+            return "my brain file is damaged. run `make disk-models` on your computer to copy "
+                   "a fresh one and restart planckOS.";
+        default:
+            return llm_status_message(status);
+    }
+}
+
 bool chat_busy(const chat_t* chat) {
     return chat->busy;
 }

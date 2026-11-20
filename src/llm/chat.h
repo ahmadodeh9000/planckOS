@@ -34,6 +34,10 @@ typedef enum {
 chat_t* chat_open(llm_status* status);
 void chat_close(chat_t* chat);
 
+/* What to tell the user when chat_open failed: a friendly sentence that
+   says what to do (for example, that the model isn't on the disk yet). */
+const char* chat_open_problem(llm_status status);
+
 /* Start Iris's reply to 'message' (cut at CHAT_MESSAGE_MAX). False if she
    is still busy with the previous one. */
 bool chat_send(chat_t* chat, const char* message);

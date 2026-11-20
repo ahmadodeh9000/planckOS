@@ -288,10 +288,7 @@ static void load_model(iris_state* st) {
         add_message(st, true, "hi! i'm iris, planckOS's assistant. ask me anything about planckOS!");
         return;
     }
-    iris_message_t* m = add_message(st, true, "i couldn't wake up: ");
-    strcat(m->text, llm_status_message(status));
-    strcat(m->text, ". my model goes on the disk as " CHAT_MODEL_FILE " and "
-                    CHAT_TOKENIZER_FILE " (make chat-model, then make disk-models).");
+    add_message(st, true, chat_open_problem(status));
 }
 
 /* Her reply is complete. If it's a tool tag (or the keyword fallback

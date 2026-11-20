@@ -40,8 +40,7 @@ shell_iris_t* shell_iris_start(console_t* con) {
     llm_status status;
     session->chat = chat_open(&status);
     if (!session->chat) {
-        console_printf(con, "iris: %s (put %s and %s on the disk: make disk-models)\n",
-                       llm_status_message(status), CHAT_MODEL_FILE, CHAT_TOKENIZER_FILE);
+        console_printf(con, "iris> %s\n", chat_open_problem(status));
         kfree(session);
         return NULL;
     }
