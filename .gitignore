@@ -15,3 +15,9 @@ build/
 
 # language models (make models / make chat-model), see models/README.md
 /models/*.bin
+
+# training (make chat-model, see docs/TRAINING.md)
+/training/.venv/
+/training/llama2.c/
+/training/work/
+/training/out/

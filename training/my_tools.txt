@@ -1,0 +1,200 @@
+# my_tools.txt - when Iris should answer with a tool tag. YOURS TO EDIT.
+#
+# Same format as my_chats.txt (several User lines = ways of asking, then
+# one Iris line). Here Iris's answer is a TAG that the Iris app runs with
+# real data from the kernel (docs/LLM.md, "Tools"):
+#
+#   [disk]            used / free / total disk space, number of files
+#   [memory]          RAM and heap in use
+#   [time]            date, time and uptime
+#   [files]           the files with their sizes
+#   [find "x"]        files whose name or text contains x
+#   [open "NAME"]     open a file in Notepad
+#   [make-app TEMPLATE slot=value ...]   build a small app from a template:
+#       message  title="..." text="..."
+#       box      title="..." color=C size=small|medium|large
+#       counter  title="..." color=C
+#       clock    title="..." color=C
+#       button   title="..." text="..." color=C
+#
+# {word}, {file}, {title}, {text}, {color} and {size} are filled in with
+# random values from the "@" lists below, a new pick for every example,
+# so Iris learns to copy whatever you type into the tag. The same
+# placeholder gets the same value in the User and Iris lines.
+#
+# The values in each list are separated by " | ". Every block below is
+# repeated many times with different fills (prepare_data.py, TOOL_REPEATS).
+
+@word: notes | hello | todo | planck | test | letter | recipe | secret | ideas | music | dog | cat | budget | plan | story | code | main | game | list | draft | report | poem | readme | shopping | homework | birthday | iris | kernel | window | apple | summer | meeting
+@file: NOTES.TXT | HELLO.ASM | TODO.TXT | LOOP.ASM | README.TXT | PLAN.TXT | IDEAS.TXT | DIARY.TXT | CLICK.ASM | LIST.TXT | POEM.TXT | GAME.ASM | DRAFT.TXT | LETTER.TXT | MAIN.ASM | SONG.TXT | notes.txt | todo.txt | hello.asm
+@title: Clicks | Taps | Hello | Counter | Boxy | Timer | Greeter | Ping | Buddy | Sunny | Pixel | Score | Welcome | Tick | Note | Bloop | Zap | Party | Demo | Hi | Lamp | Moon | Star | Dash
+@text: Hello there! | Have a nice day | Welcome to planckOS | You can do it | Press me | Click here | Good morning | Hi friend | Go team | Coffee time | I love planckOS | Stay curious
+@color: red | green | blue | yellow | orange | purple | white | black | pink | gray | cyan
+@size: small | medium | large
+
+# ---- disk ------------------------------------------------------------
+
+User: how much space is left
+User: how much storage do i have
+User: is my disk full
+User: how much disk space is free
+User: how full is the disk
+User: how much room is left on the disk
+User: check my disk
+User: disk space
+User: how big is the disk
+User: am i running out of space
+User: how much storage is left
+User: how many files do i have
+User: show disk usage
+User: storage
+Iris: [disk]
+
+# ---- memory ----------------------------------------------------------
+
+User: how much memory is used
+User: how much ram do i have
+User: how much memory is free
+User: check the memory
+User: memory usage
+User: how much ram is free
+User: show me the memory
+User: is the memory full
+User: how much heap is used
+User: ram
+User: how much memory do you use
+Iris: [memory]
+
+# ---- time ------------------------------------------------------------
+
+User: what time is it
+User: what's the time
+User: what is the date
+User: what day is it
+User: what's today's date
+User: tell me the time
+User: time
+User: date
+User: how long have you been running
+User: what is the uptime
+User: how long has planckOS been on
+User: what's the date today
+Iris: [time]
+
+# ---- files -----------------------------------------------------------
+
+User: list my files
+User: show my files
+User: what files do i have
+User: what's on the disk
+User: show me the files
+User: which files are there
+User: list the files
+User: files please
+User: what is saved on my disk
+User: show everything on the disk
+Iris: [files]
+
+# ---- find ------------------------------------------------------------
+
+User: find {word}
+User: search for {word}
+User: find my {word}
+User: look for {word}
+User: find files with {word}
+User: search {word}
+User: where is {word}
+User: which file has {word} in it
+User: find "{word}"
+User: search my files for {word}
+User: can you find {word}
+User: look for files about {word}
+User: find my {word} file
+User: where did i write {word}
+Iris: [find "{word}"]
+
+# ---- open ------------------------------------------------------------
+
+User: open {file}
+User: open {file} in notepad
+User: edit {file}
+User: show me {file}
+User: can you open {file}
+User: please open {file}
+User: i want to edit {file}
+User: open the file {file}
+Iris: [open "{file}"]
+
+# ---- make-app --------------------------------------------------------
+
+User: make me a counter app called {title}
+User: make a counter called {title}
+User: create a click counter named {title}
+User: i want a counter app called {title}
+User: build a counter app named {title}
+User: make an app that counts clicks called {title}
+Iris: [make-app counter title="{title}"]
+
+User: make a {color} counter app called {title}
+User: make me a {color} counter called {title}
+User: create a {color} click counter named {title}
+Iris: [make-app counter title="{title}" color={color}]
+
+User: make a counter app
+User: make me a click counter
+User: i want an app that counts my clicks
+Iris: [make-app counter]
+
+User: i want a {color} box window
+User: make a {color} box
+User: show me a {color} box
+User: make an app with a {color} box
+User: draw a {color} box in a window
+Iris: [make-app box color={color}]
+
+User: make a {size} {color} box called {title}
+User: i want a {size} {color} box window named {title}
+Iris: [make-app box title="{title}" color={color} size={size}]
+
+User: make a {color} box app called {title}
+User: create a box window called {title} in {color}
+Iris: [make-app box title="{title}" color={color}]
+
+User: make a window that says {text}
+User: make an app that says {text}
+User: show a message that says {text}
+User: i want a window with the message {text}
+User: make a message window saying {text}
+Iris: [make-app message text="{text}"]
+
+User: make a window called {title} that says {text}
+User: create a message app named {title} that says {text}
+Iris: [make-app message title="{title}" text="{text}"]
+
+User: make a clock app
+User: make me a digital clock
+User: i want a clock app
+User: build a clock window
+Iris: [make-app clock]
+
+User: make a {color} clock called {title}
+User: make a digital clock in {color} named {title}
+User: create a {color} clock app called {title}
+Iris: [make-app clock title="{title}" color={color}]
+
+User: make a clock app called {title}
+User: make a digital clock named {title}
+Iris: [make-app clock title="{title}"]
+
+User: make a button that changes color
+User: make me a button app
+User: i want a button that changes color when i click it
+Iris: [make-app button]
+
+User: make a {color} button that says {text}
+User: make a button app with the label {text} in {color}
+Iris: [make-app button text="{text}" color={color}]
+
+User: make a button app called {title}
+User: create a color button named {title}
+Iris: [make-app button title="{title}"]

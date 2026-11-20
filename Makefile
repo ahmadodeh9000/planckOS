@@ -13,6 +13,7 @@
 #   make asm-test     check the built-in assembler's bytes against NASM
 #   make models       download the test model into models/ (checksummed)
 #   make disk-models  copy the models in models/ onto disk.img (8.3 names)
+#   make chat-model   train Iris, the chat model, on this computer (training/)
 #   make clean        remove build/
 
 # ---- toolchain ---------------------------------------------------------
@@ -67,7 +68,7 @@ QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
               -drive file=$(DISK),format=raw,index=1,media=disk
 
 # ---- targets -----------------------------------------------------------
-.PHONY: all iso run run-headless disk programs asm-test templates-test models disk-models clean
+.PHONY: all iso run run-headless disk programs asm-test templates-test iris-eval models disk-models chat-model clean
 
 all: iso
 
@@ -147,6 +148,47 @@ disk-models: $(DISK)
 	    fi; \
 	done
 
+# Iris, the chat model (docs/TRAINING.md). Trains on this computer with
+# llama2.c's train.py (pinned below).
+#   prepare_data.py    my_chats.txt + my_tools.txt -> work/train.txt, val.txt
+#   train_tokenizer.py a 512-token SentencePiece vocabulary
+#   tokenize_data.py   the text as token numbers for train.py
+#   train.py           the model; writes out/model.bin (llama2.c format)
+# It trains on the CPU: on an M1 Mac with PyTorch 2.5.1, training on the GPU
+# (IRIS_DEVICE=mps) often gets stuck at a loss of about 4 instead of
+# learning (TRAINING.md, "Why the CPU").
+IRIS_DEVICE ?= cpu
+TRAIN       := training
+PYTHON      := $(TRAIN)/.venv/bin/python
+LLAMA2C     := $(TRAIN)/llama2.c
+LLAMA2C_GIT := https://github.com/karpathy/llama2.c.git
+LLAMA2C_REV := 350e04fe35433e6d2941dce5a1f53308f87058eb
+IRIS_VOCAB  := 512
+IRIS_TRAIN_FLAGS := --vocab_source=custom --vocab_size=$(IRIS_VOCAB) \
+    --dim=128 --n_layers=5 --n_heads=4 --n_kv_heads=4 --max_seq_len=256 \
+    --batch_size=32 --gradient_accumulation_steps=1 --learning_rate=1e-3 \
+    --max_iters=4000 --warmup_iters=200 --eval_interval=500 --eval_iters=50 \
+    --dropout=0.1 --dtype=float32 --compile=False --always_save_checkpoint=False
+
+chat-model: $(PYTHON) $(LLAMA2C)/train.py
+	cd $(TRAIN) && .venv/bin/python prepare_data.py
+	$(PYTHON) $(TRAIN)/train_tokenizer.py $(LLAMA2C) $(IRIS_VOCAB)
+	$(PYTHON) $(TRAIN)/tokenize_data.py $(LLAMA2C) $(IRIS_VOCAB)
+	cd $(LLAMA2C) && ../.venv/bin/python train.py $(IRIS_TRAIN_FLAGS) --out_dir=../out \
+	    --device=$(IRIS_DEVICE)
+	cp $(TRAIN)/out/model.bin models/iris.bin
+	cp $(LLAMA2C)/data/tok$(IRIS_VOCAB).bin models/iris_tok.bin
+	@echo "chat-model: models/iris.bin and models/iris_tok.bin (make disk-models copies them)"
+
+$(PYTHON): $(TRAIN)/requirements.txt
+	python3 -m venv $(TRAIN)/.venv
+	$(PYTHON) -m pip install -r $(TRAIN)/requirements.txt
+	touch $(PYTHON)
+
+$(LLAMA2C)/train.py:
+	git clone $(LLAMA2C_GIT) $(LLAMA2C)
+	git -C $(LLAMA2C) checkout $(LLAMA2C_REV)
+
 # Builds the assembler in src/asm/ for this computer (HOST_CC), assembles
 # tests/asm/encoding.asm with it and with 'nasm -O0', and compares the bytes.
 # tests/asm/host/ supplies lib/string.h from the host's C library.
@@ -184,6 +226,22 @@ templates-test:
 	    cmp $${src%.asm}.planck $${src%.asm}.nasm || exit 1; \
 	done
 	@echo "templates-test: $$(ls $(TEMPLATES_TEST)/*.asm | wc -l | tr -d ' ') filled-in templates identical to NASM"
+
+# Runs Iris's model and tool choice on this computer (the kernel's own
+# src/llm and iris_tools.c, with tests/iris/host/ standing in for the
+# kernel): scores the 50 held-out requests in training/tool_test.txt and
+# prints the sample conversations in tests/iris/sample_chats.txt.
+IRIS_EVAL := $(BUILD)/iris-eval
+
+iris-eval: models/iris.bin models/iris_tok.bin
+	@mkdir -p $(IRIS_EVAL)
+	$(HOST_CC) -std=gnu99 -O2 -Wall -Wextra -Itests/iris/host -Isrc -o $(IRIS_EVAL)/iris_eval \
+	    tests/iris/iris_eval.c src/apps/iris_tools.c \
+	    src/llm/model.c src/llm/tokenizer.c src/llm/sampler.c src/llm/llm.c src/llm/chat.c -lm
+	cp models/iris.bin $(IRIS_EVAL)/IRIS.BIN
+	cp models/iris_tok.bin $(IRIS_EVAL)/IRISTOK.BIN
+	IRIS_DIR=$(IRIS_EVAL) $(IRIS_EVAL)/iris_eval chat tests/iris/sample_chats.txt 2>/dev/null
+	IRIS_DIR=$(IRIS_EVAL) $(IRIS_EVAL)/iris_eval tools training/tool_test.txt 2>/dev/null
 
 $(BUILD)/programs/%.elf: programs/%.c programs/planck.h programs/program.ld
 	@mkdir -p $(dir $@)

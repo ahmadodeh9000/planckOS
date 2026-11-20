@@ -10,6 +10,7 @@
 | Emulator | `qemu` | `qemu-system-x86` |
 | FAT tools (for `make disk`) | built in (`hdiutil`, `newfs_msdos`) | `dosfstools` (`mkfs.fat`) |
 | Disk copy (for `make programs`, `make disk-models`) | `mtools` | `mtools` |
+| Python 3 (for `make chat-model`) | `python3` (Homebrew or python.org) | `python3`, `python3-venv` |
 | Download (for `make models`) | `curl`, `shasum` (preinstalled) | `curl`, `shasum` (perl) |
 | Host C compiler (for `make asm-test`) | `cc` (Xcode command line tools) | `gcc` or `cc` |
 
@@ -29,6 +30,8 @@ refuses to compile unless the target is 32-bit x86 (`__i386__`).
 | `make models` | Downloads the test language model (`stories260K.bin`, `tok512.bin`) into `models/` and checks its SHA-256 (see `LLM.md`). |
 | `make disk-models` | Copies the models in `models/` onto `disk.img` with 8.3 names (`S260K.BIN`, `TOK512.BIN`, ...). |
 | `make asm-test` | Builds the built-in assembler for your computer and checks that its bytes for `tests/asm/encoding.asm` are identical to `nasm -O0`'s (see `ASSEMBLER.md`). |
+| `make chat-model` | Trains Iris, the chat model, on this computer and writes `models/iris.bin` and `models/iris_tok.bin` (about 40 minutes; see `TRAINING.md`). |
+| `make iris-eval` | Runs Iris's model and tool choice on this computer: prints sample conversations and scores the 50 held-out tool requests. |
 | `make templates-test` | Fills in every Iris app template with every color, assembles each with the built-in assembler and with NASM, and compares the bytes (see "Tools" in `LLM.md`). |
 | `make clean` | Deletes `build/`. |
 

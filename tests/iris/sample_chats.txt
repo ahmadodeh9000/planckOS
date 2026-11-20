@@ -1,0 +1,28 @@
+hi
+who are you
+what can you do
+
+how do i make a text file
+how do i save it
+thanks
+
+who made planckOS
+what language is it written in
+
+how do i run a program
+and how do i write one
+
+is my disk full
+what time is it
+
+find recipe
+open NOTES.TXT
+
+make a blue counter called Taps
+make a window that says Good luck
+
+what is the capital of spain
+tell me a joke
+
+how do i shut down
+bye

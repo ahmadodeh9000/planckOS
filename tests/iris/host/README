@@ -1,0 +1,3 @@
+Host shims for 'make iris-eval': stand-ins for the kernel headers that
+src/llm/ and src/apps/iris_tools.c include, so the same code runs on a
+normal computer. Files are read from the directory in IRIS_DIR.
