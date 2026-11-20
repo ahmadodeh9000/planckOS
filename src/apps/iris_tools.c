@@ -178,8 +178,31 @@ static bool has_any_word(const char* text, const char* const* words) {
     return false;
 }
 
-/* Is every value of the call somewhere in the message? A value the
-   model made up (or copied wrong) means the tag can't be trusted. */
+/* Words that show a message is about each tool without a value. The
+   keyword fallback looks for them too. */
+static const char* const disk_words[] = { "disk", "storage", "space", "room", "full", NULL };
+static const char* const memory_words[] = { "memory", "ram", "heap", NULL };
+static const char* const time_words[] = { "time", "date", "day", "uptime", NULL };
+static const char* const files_words[] = { "files", "file", "disk", "list", NULL };
+
+/* A tag without values ([disk], [time], ...) is only believed if the
+   message mentions what it's about: otherwise "what is the capital of
+   spain" could get the disk space. */
+static bool tool_has_evidence(const tool_call_t* call, const char* message) {
+    char text[MESSAGE_MAX];
+    to_lower(message, text, sizeof(text));
+    switch (call->kind) {
+        case TOOL_DISK:   return has_any_word(text, disk_words);
+        case TOOL_MEMORY: return has_any_word(text, memory_words);
+        case TOOL_TIME:   return has_any_word(text, time_words) || find_text(text, "how long");
+        case TOOL_FILES:  return has_any_word(text, files_words);
+        default:          return true;
+    }
+}
+
+/* Is every value of the call in the message, as whole words? A value the
+   model made up, or copied wrong ("Happy Frid" for "Happy Friday"), means
+   the tag can't be trusted. */
 static bool values_in_message(const tool_call_t* call, const char* message) {
     char text[MESSAGE_MAX];
     char value[TOOL_VALUE_MAX];
@@ -187,11 +210,11 @@ static bool values_in_message(const tool_call_t* call, const char* message) {
 
     if (call->kind == TOOL_FIND || call->kind == TOOL_OPEN) {
         to_lower(call->value, value, sizeof(value));
-        return find_text(text, value) != NULL;
+        return has_word(text, value);
     }
     for (int i = 0; i < call->slot_count; i++) {
         to_lower(call->slots[i].value, value, sizeof(value));
-        if (!find_text(text, value)) {
+        if (!has_word(text, value)) {
             return false;
         }
     }
@@ -200,7 +223,8 @@ static bool values_in_message(const tool_call_t* call, const char* message) {
 
 tool_source_t tool_choose(const char* message, const char* reply, tool_call_t* call) {
     tool_kind_t kind = tool_parse(reply, call);
-    if (kind != TOOL_NONE && kind != TOOL_BAD && values_in_message(call, message)) {
+    if (kind != TOOL_NONE && kind != TOOL_BAD && values_in_message(call, message) &&
+        tool_has_evidence(call, message)) {
         return TOOL_FROM_MODEL;
     }
     if (tool_route(message, call)) {
@@ -362,21 +386,18 @@ static bool route_make_app(const char* message, const char* text, tool_call_t* c
 
 /* Requests about the system itself: disk, memory, time, the file list. */
 static tool_kind_t route_simple(const char* text) {
-    static const char* const disk[] = { "disk", "storage", "space", "room", NULL };
-    static const char* const memory[] = { "memory", "ram", "heap", NULL };
-    static const char* const time[] = { "time", "date", "day", "uptime", NULL };
     static const char* const list[] = { "list", "show", "what", "which", NULL };
 
     if (has_word(text, "files") && has_any_word(text, list) && !find_text(text, "how many")) {
         return TOOL_FILES;
     }
-    if (has_any_word(text, disk)) {
+    if (has_any_word(text, disk_words)) {
         return TOOL_DISK;
     }
-    if (has_any_word(text, memory)) {
+    if (has_any_word(text, memory_words)) {
         return TOOL_MEMORY;
     }
-    if (has_any_word(text, time) || find_text(text, "how long")) {
+    if (has_any_word(text, time_words) || find_text(text, "how long")) {
         return TOOL_TIME;
     }
     return TOOL_NONE;

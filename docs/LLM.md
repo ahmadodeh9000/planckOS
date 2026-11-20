@@ -361,7 +361,11 @@ rephrasing or type `help`." instead.
 **Trust, but check** (`tool_choose`). A tiny model makes two kinds of
 mistakes with tools: it misses the tag (a chatty answer to "how much space
 is left"), or it copies a value wrong (`[find "back"]` for "find banana").
-So a tag is only used if every value in it also appears in your message.
+So a tag is only used if every value in it also appears in your message
+as whole words (`"Happy Frid"` doesn't count for "Happy Friday"), and a
+tag without values (`[disk]`, `[memory]`, `[time]`, `[files]`) only if the
+message has a word about it ("disk", "space", "ram", "time", ...).
+Without that, "what is the capital of spain" could get the disk space.
 Otherwise, or when there's no tag, the **keyword fallback**
 (`tool_route`) looks for obvious requests: "find ..."/"search for ...",
 "open NAME.EXT", "make/create ... counter/clock/box/button", and words
@@ -447,7 +451,9 @@ the FPU's registers (see "The x87 FPU" in `INTERRUPTS.md`).
 ## Speed
 
 In QEMU on an Apple M1, `stories260K` writes about 20-30 tokens per
-second. QEMU emulates every x87 instruction in software, so each `fmul`
+second, and Iris (4 times as many parameters) about 7-10 tokens per
+second, counting the tokens of your message she reads and the ones she
+writes: a short answer takes 2-4 seconds, her longest about 9. QEMU emulates every x87 instruction in software, so each `fmul`
 and `fadd` is a function call; a model with a million parameters does
 about two million of them per token.
 
