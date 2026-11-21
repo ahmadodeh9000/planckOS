@@ -43,7 +43,7 @@ CONVERSATIONS = 40000   # how many conversations to write
 VAL_FRACTION = 0.05     # share kept apart to measure overfitting
 MAX_TURNS = 3           # turns per conversation (1..MAX_TURNS)
 STORY_CHANCE = 0.25     # chance to use a fixed multi-turn conversation
-TOOL_SHARE = 0.6        # share of single turns that are tool requests, so
+TOOL_SHARE = 0.7        # share of single turns that are tool requests, so
                         # more chat data doesn't crowd out the tools
 MY_CHATS_WEIGHT = 3     # my_chats.txt counts this many times as much as
                         # more_chats.txt, per example
