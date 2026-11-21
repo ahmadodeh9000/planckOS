@@ -59,6 +59,7 @@ static const mnemonic_info_t mnemonics[] = {
     { "inc",  KIND_INCDEC, 0x40, 0 }, { "dec",  KIND_INCDEC, 0x48, 1 },
     { "not",  KIND_GROUP3, 0xF6, 2 }, { "neg",  KIND_GROUP3, 0xF6, 3 },
     { "mul",  KIND_GROUP3, 0xF6, 4 }, { "div",  KIND_GROUP3, 0xF6, 6 },
+    { "idiv", KIND_GROUP3, 0xF6, 7 },
     { "shl",  KIND_SHIFT,  0xC0, 4 }, { "shr",  KIND_SHIFT,  0xC0, 5 },
     { "push", KIND_PUSH,   0x50, 6 }, { "pop",  KIND_POP,    0x58, 0 },
     { "lea",  KIND_LEA,    0x8D, 0 },
@@ -69,6 +70,7 @@ static const mnemonic_info_t mnemonics[] = {
     { "jl",   KIND_JCC,    0x80, 0xC }, { "jge", KIND_JCC,   0x80, 0xD },
     { "jle",  KIND_JCC,    0x80, 0xE }, { "jg",  KIND_JCC,   0x80, 0xF },
     { "ret",  KIND_SINGLE, 0xC3, 0 }, { "nop",  KIND_SINGLE, 0x90, 0 },
+    { "cdq",  KIND_SINGLE, 0x99, 0 },   /* sign-extend eax into edx, for idiv */
     { "int",  KIND_INT,    0xCD, 0 },
 };
 

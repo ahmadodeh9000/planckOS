@@ -92,7 +92,7 @@ length   equ $ - message        ; $ is the address where the line starts
 | `mov` | reg, reg / reg, imm / reg, [mem] / [mem], reg / [mem], imm |
 | `add or and sub xor cmp` | same as `mov` |
 | `test` | reg, reg / reg, imm / [mem], reg / reg, [mem] / [mem], imm |
-| `inc dec not neg mul div` | reg / [mem] |
+| `inc dec not neg mul div idiv` | reg / [mem] (`idiv` is signed division, after `cdq`) |
 | `shl shr` | reg or [mem], then `1`, a number, or `cl` |
 | `push` | reg32 / imm / label / [mem] (32-bit) |
 | `pop` | reg32 / [mem] (32-bit) |
@@ -100,7 +100,7 @@ length   equ $ - message        ; $ is the address where the line starts
 | `jmp call` | label / reg32 / [mem] |
 | `je jne jz jnz jl jle jg jge ja jb` | label |
 | `int` | number 0-255 |
-| `ret nop` | none |
+| `ret nop cdq` | none |
 
 Registers: `eax ebx ecx edx esi edi ebp esp` (32-bit) and
 `al bl cl dl ah bh ch dh` (8-bit). There is no 16-bit (`ax`) support.

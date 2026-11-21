@@ -139,7 +139,7 @@ _start:
     dec ah
     dec dword [esp+4]
 
-    ; ---- not neg mul div --------------------------------------------
+    ; ---- not neg mul div idiv cdq -----------------------------------
     not eax
     not bl
     neg ecx
@@ -149,6 +149,10 @@ _start:
     mul dword [table]
     div ecx
     div byte [ebx]
+    cdq
+    idiv ecx
+    idiv dword [esp+8]
+    idiv bl
 
     ; ---- shl shr ----------------------------------------------------
     shl eax, 1
