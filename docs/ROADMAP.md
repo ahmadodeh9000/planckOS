@@ -30,6 +30,11 @@ bitmap PMM, paging, a heap, a PS/2 keyboard, ATA PIO, FAT12 and a shell.
   `ASSEMBLER.md`). Its encodings are checked against NASM, and its ELF output
   runs with `exec`. Write in Notepad, `asm`, `exec`, all without leaving
   planckOS.
+- *Higgson:* planckOS's own language (`HIGGSON.md`). A compiler with a
+  C-like syntax (variables, if/else, while, funcs, C's operators) that
+  runs inside planckOS (`higgson` command) and builds GUI apps: a window,
+  drawing, mouse, keys and a timer. The same core files build on the host
+  (`make higgson-host`) and give byte-identical assembly.
 - *Language models:* the x87 FPU and float math, and a port of llama2.c's
   `run.c` (`LLM.md`), checked token for token against llama2.c
   (`llm-test`).
@@ -66,6 +71,15 @@ Roughly from easiest to hardest. Each one says where to start.
 
 ### Medium
 
+- **Parameters, return values and local variables for Higgson funcs.**
+  Push the arguments before `call`, set up a frame with `ebp`, and read
+  parameters at `[ebp + 8]`, `[ebp + 12]`, ...; locals go below `ebp`, and
+  a value comes back in `eax`. The parser needs a second name table for
+  the current func's names (`parser.c`, `HIGGSON.md` "How the compiler
+  works").
+- **Arrays in Higgson.** `let a[10];` as `times 10 dd 0` in the data, and
+  `a[i]` as `[_v_a + ecx*4]`, which needs the `[base + index*scale]`
+  addressing the assembler doesn't have yet (below).
 - **A faster Iris.** QEMU emulates the x87 in software, so `matmul` is
   the bottleneck. Turning on SSE (`CR4.OSFXSR`, `fxsave`) and compiling
   `llm/model.c` with `-msse2 -mfpmath=sse` would let QEMU use simpler

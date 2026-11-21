@@ -1,13 +1,38 @@
 # Higgson
 
 Higgson is planckOS's own programming language, named after the Higgs
-boson to go with planckOS's physics theme. Its compiler turns a Higgson
-program into planckOS assembly, which the built-in assembler (`ASSEMBLER.md`)
-turns into a program for `exec`.
+boson to go with planckOS's physics theme. You write a program in Notepad,
+compile it with the `higgson` command, and run it with `exec`, all inside
+planckOS. Programs can print to the Terminal, or open a window, draw in it
+and react to the mouse, the keyboard and the clock.
 
-The compiler started as `planckBASIC`, written by following Austin
-Henley's *Teeny Tiny Compiler* tutorial: a lexer, a recursive-descent
-parser and an emitter.
+The compiler turns a Higgson program into planckOS assembly, which the
+built-in assembler (`ASSEMBLER.md`) turns into a program. It started as
+`planckBASIC`, a BASIC compiler written by following Austin Henley's
+*Teeny Tiny Compiler* tutorial (see Credits), and now has a C-like syntax.
+
+## Using it
+
+Open a Terminal (planckOS button, Terminal) and try an example that
+`make run` put on the disk:
+
+```
+higgson FIB.HGS FIB.ELF     compile to a program, then: exec FIB.ELF
+higgson FIB.HGS FIB.ASM     write the assembly instead, to read in Notepad
+```
+
+To write your own, open Notepad, type a program, save it as `MY.HGS`,
+and compile it the same way.
+
+The assembly goes from the compiler to the assembler in memory; only the
+finished program is written to the disk. An error stops the compile and
+says where:
+
+```
+higgson: FIB.HGS line 5: expected ';' after statement
+```
+
+and nothing is written. Source files can be up to 32 KB.
 
 ## The language
 
@@ -209,31 +234,162 @@ and out of `bits` (with an `if` per row: there's no other way to pick a
 variable by number), `clicked` flips one bit by adding or subtracting it,
 and `draw` walks each row's bits with `% 2` and `/ 2`.
 
-## Using it
+## How the compiler works
 
-In a Terminal:
-
-```
-higgson FIB.HGS FIB.ELF     compile to a program, then: exec FIB.ELF
-higgson FIB.HGS FIB.ASM     write the assembly instead, to read in Notepad
-```
-
-The assembly goes from the compiler to the assembler in memory; only the
-finished program is written to the disk. An error stops the compile and
-says where:
+A compiler is a pipeline. Higgson's has three stages, each a file in
+`src/higgson/`:
 
 ```
-higgson: FIB.HGS line 5: expected ';' after statement
+source text --lex.c--> tokens --parser.c--> assembly --emit.c--> one text
+ let x = 2;           let x = 2 ;          mov eax, 2           header, code,
+                                            mov [_v_x], eax      funcs, data
 ```
 
-and nothing is written. Source files can be up to 32 KB.
+**The lexer** (`lex.c`) reads characters and groups them into *tokens*:
+`let`, `x`, `=`, `2`, `;`. It skips spaces and comments, knows which words
+are keywords, and gives each token its line number, which is how every
+error can say where it is. Its errors are about characters: an unknown
+character, an unclosed string or comment.
+
+**The parser** (`parser.c`) checks that the tokens follow the grammar,
+which is written at the top of the file. It's a *recursive-descent*
+parser: one function per grammar rule, calling each other the way the
+rules refer to each other. `hg_while_statement` matches `while`, calls
+`hg_condition` for `( ... )`, then `hg_block` for `{ ... }`, which calls
+`hg_statement` for each statement inside, and so on. Operator precedence
+comes from the same idea: `hg_expression` (`+ -`) calls `hg_term`
+(`* / %`) for each side, so in `1 + 2 * 3` the `2 * 3` is finished before
+the `+` sees it.
+
+There is no syntax tree. As soon as the parser recognizes something, it
+emits its assembly: the compiler makes a single pass over the source.
+`builtins.c` is part of the parser for the built-in names (`window`,
+`rect`, `mouse_x`, `RED`, ...).
+
+**The emitter** (`emit.c`) collects the assembly in four buffers, joined
+at the end: the header (`SYS_PRINT equ 0` and the other constants), the
+main code, the funcs, and the data (variables and strings). Separate
+buffers let the parser add a variable to the data the moment it sees its
+`let`, in the middle of writing code.
+
+### A stack machine
+
+The generated code works like a calculator with a stack. Every expression
+leaves its value in the `eax` register. For an operator, the left side is
+computed first and pushed on the stack, then the right side is computed
+into `eax`; the left one is popped back, and the two are combined.
+`print(x + 3 * 4);` becomes:
+
+```
+    mov eax, [_v_x]     ; x
+    push eax            ; keep it: the right side of + comes first
+    mov eax, 3
+    push eax            ; keep 3 while computing 4
+    mov eax, 4
+    mov ecx, eax        ; right side in ecx ...
+    pop eax             ; ... left side back in eax
+    mul ecx             ; 3 * 4
+    mov ecx, eax
+    pop eax             ; x
+    add eax, ecx        ; x + 12
+    mov ebx, eax
+    mov eax, SYS_PRINT_NUMBER
+    int 0x80            ; ask the kernel to print it
+```
+
+It isn't the shortest code, but it's always right, however the
+expression is nested, and each rule only has to know about itself.
+Variables are named memory cells in the data, `_v_x: dd 0`.
+
+### if, while, && and || are jumps
+
+The processor has no `if` or `while`, only *jumps*: go to a label, or go
+there only if the last comparison came out a certain way. A comparison
+like `x > 0` compares and then sets `eax` to 1 or 0:
+
+```
+    cmp eax, ecx
+    mov eax, 1
+    jg L3               ; greater: keep the 1
+    mov eax, 0
+L3:
+```
+
+`if (c) { A } else { B }` tests that value and jumps over what mustn't run:
+
+```
+    (c into eax)
+    cmp eax, 0
+    je L1               ; false: skip A
+    (A)
+    jmp L2              ; done: skip B
+L1:
+    (B)
+L2:
+```
+
+`while (c) { A }` is the same with a jump back to the top: `L1:`, the
+test, `je L2`, `A`, `jmp L1`, `L2:`.
+
+`a && b` jumps out as soon as one side is 0, so `b` isn't computed when
+`a` is already false; that's the "short circuit". `||` does the same with
+the first side that isn't 0:
+
+```
+    (a into eax)
+    cmp eax, 0
+    je L4               ; a is false: the answer is 0, b never runs
+    (b into eax)
+    cmp eax, 0
+    je L4
+    mov eax, 1
+    jmp L5
+L4:
+    mov eax, 0
+L5:
+```
+
+### Funcs become callbacks
+
+A func is a label with its body after it and a `ret` at the end:
+`_f_draw: ... ret`, placed after the main code. `draw();` is `call
+_f_draw`. Since funcs have no parameters or local variables, nothing else
+is needed; `return;` is just an early `ret`.
+
+`on_paint(draw);` gives the kernel the address `_f_draw` (the
+`SYS_WIN_ON` call). When the window needs painting, the kernel calls it
+like a C function, `paint(id)`, and its `ret` goes back to the kernel.
+For clicks and keys the kernel passes values, `mouse(id, x, y)` and
+`key(id, key)`, on the stack. So a func given to `on_click` gets a small
+entry in front of it that copies them into `mouse_x` and `mouse_y`:
+
+```
+_click_clicked:         ; the address on_click(clicked) registers
+    mov eax, [esp + 8]  ; x: after the return address and the id
+    mov [_hg_mouse_x], eax
+    mov eax, [esp + 12] ; y
+    mov [_hg_mouse_y], eax
+    jmp _f_clicked      ; the func itself, whose ret returns to the kernel
+```
+
+The entry is separate from the func because one func may serve several
+events, or be called directly.
+
+### From assembly to a program
+
+`hg_compile` returns the assembly as one text. The higgson command hands
+it to `asm_assemble`, the same assembler as the `asm` command, in memory,
+and writes the finished program (or, for an `.ASM` name, the text). Read
+a `.ASM` in Notepad to see all of the above for your own program.
 
 ## One source, two builds
 
 ```
 src/higgson/            the compiler core: no C library, no kernel code
   lex.c  parser.c  emit.c  util.c    the original compiler (pcl_ -> hg_)
+  builtins.c            the built-in functions and values (GUI apps)
   compiler.c            hg_compile: sets up and runs one compilation
+  hg.h                  what the parts share: hg_alloc, hg_error
   arena.c               all of one compilation's memory, in one block
   platform.h            the only thing the core needs from its system
   platform_kernel.c     ... inside planckOS
@@ -250,6 +406,9 @@ files the kernel uses. The platform layer is three things:
 | Memory | `kmalloc` / `kfree` | `malloc` / `free` |
 | Output text | `kvsnprintf` (`lib/format.c`) | `vsnprintf` |
 | Errors | `setjmp` / `longjmp` (`arch/jump.s`) | `setjmp` / `longjmp` from the C library |
+
+Both builds compile any program to the same assembly, byte for byte; the
+tests check that for every example.
 
 ## How the port works
 
@@ -285,6 +444,23 @@ on a 32 KB stack of its own (`compiler_stack` in `platform_kernel.c`):
 `call_on_stack` in `arch/jump.s` points esp at it, calls the compiler, and
 points esp back. A longjmp from an error restores the old esp anyway.
 
+## Limits
+
+- **Only whole numbers**: every value is a 32-bit signed int, from
+  -2147483648 to 2147483647. Overflow wraps around silently, as in C.
+  Strings exist only as `"text"` in `print`, `window` and `text`.
+- **256 names** of each kind: variables, and funcs. All of a program's
+  labels and constants together are also limited to 256 by the
+  assembler: a few hundred lines of Higgson. Names can be up to 24
+  characters, strings up to 200, source files up to 32 KB.
+- **One window** per program.
+- **No arrays, parameters or return values** (yet). Funcs share data
+  through the global variables, as the examples show.
+- **16 levels of nesting**: blocks inside blocks, and parentheses inside
+  parentheses, count together.
+- **No escape codes** in strings: `\n` is refused rather than printed as
+  two characters. `print` adds the newline itself.
+
 ## Testing
 
 `make higgson-test` runs on your computer, with the same core files:
@@ -310,8 +486,14 @@ Inside planckOS, checked by hand in QEMU:
 
 ## What changed from planckBASIC
 
-The import commit has the original exactly as it was. Besides the
-`pcl_` to `hg_` rename:
+The import commit has the original exactly as it was. The language then
+changed from BASIC (`LET`, `IF ... THEN ... ENDIF`, `WHILE ... REPEAT ...
+ENDWHILE`, `LABEL`/`GOTO`, one statement per line) to the C-like syntax
+above, and gained `&&`, `||`, `!`, `%`, funcs and the GUI built-ins. The
+structure stayed: the same lexer, the same recursive-descent functions
+(`hg_comparison`, `hg_expression`, `hg_term`, `hg_unary`, `hg_primary`),
+the same emitter with its buffers, the same stack-machine code. Besides
+the `pcl_` to `hg_` rename, the port itself changed:
 
 - `parser.c` had two versions of every parsing function: the emitting
   one and, below it, the tutorial's earlier one that only printed what
@@ -326,3 +508,11 @@ The import commit has the original exactly as it was. Besides the
   the caller: the core can't open files.
 - The emitter formats straight into its buffer, since a temporary copy
   can't be freed in an arena.
+
+## Credits
+
+The compiler's design, a lexer, a recursive-descent parser and an emitter
+working in a single pass, comes from Austin Henley's tutorial
+[*Let's make a Teeny Tiny compiler*](https://austinhenley.com/blog/teenytinycompiler1.html),
+which planckBASIC followed. Its BASIC-like language became Higgson's
+C-like one, and its C output became planckOS assembly.

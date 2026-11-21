@@ -41,6 +41,11 @@ counter app she made from a template:
   turns NASM-style source into runnable programs, so you can write, build
   and run assembly entirely inside planckOS. Its output is checked byte for
   byte against NASM (`make asm-test`).
+- **Higgson:** planckOS's own programming language, with a C-like syntax
+  and a compiler inside the OS (`higgson` command): write a program in
+  Notepad, compile it and run it, including GUI apps with a window, mouse,
+  keyboard and timer (examples: `programs/*.hgs`). The same compiler
+  builds on your computer (`make higgson-host`)
 - **Language models:** a port of llama2.c's `run.c` runs small Llama 2
   models on the x87 FPU; `llm-test` checks it token for token against
   llama2.c (`make models` downloads the test model)
@@ -106,6 +111,7 @@ target. To teach Iris new things and retrain her yourself, see
 | [EXEC](docs/EXEC.md) | Loading and running ELF programs, and how to write one |
 | [PROGRAMS_GUI](docs/PROGRAMS_GUI.md) | Windows for programs: system calls, callbacks, lifetime rules |
 | [ASSEMBLER](docs/ASSEMBLER.md) | The built-in assembler: syntax, two passes, x86 encoding, adding instructions |
+| [HIGGSON](docs/HIGGSON.md) | Higgson, planckOS's programming language, for beginners: the language, GUI apps, how the compiler works |
 | [LLM](docs/LLM.md) | Language models: the transformer step by step, the file format, the x87 math, Iris's fact cards and tools |
 | [TRAINING](docs/TRAINING.md) | Training Iris, for beginners: what training is, `make chat-model`, the settings, retraining |
 | [ROADMAP](docs/ROADMAP.md) | What's done and good next steps |
@@ -146,3 +152,6 @@ comes from SeaBIOS's VGA BIOS (GNU LGPL v3), see `src/gfx/font.c`.
   `models/README.md` and `src/llm/CREDITS.md`.
 - Iris's portrait (`src/apps/iris_avatar.c`) is original pixel art made
   for planckOS.
+- The Higgson compiler (`src/higgson/`) follows the design of Austin
+  Henley's tutorial
+  [*Let's make a Teeny Tiny compiler*](https://austinhenley.com/blog/teenytinycompiler1.html).
