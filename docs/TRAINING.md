@@ -160,7 +160,12 @@ planckOS. What must not happen is that she only understands the exact
 questions in the file. That's why every answer has several phrasings,
 why the tool values are random, and why `tool_test.txt` holds 50
 requests that are deliberately *not* in the training data. `make
-iris-eval` measures her on those.
+iris-eval` measures her on those. Two more held-out files test how she
+chats: `tests/iris/eval_questions.txt` (30 single messages: planckOS,
+small talk, feelings, things she can't know) and
+`tests/iris/chatty_chats.txt` (8 short conversations, where she has to
+remember what was just said). None of their lines is in the training
+data, and they must stay out of it.
 
 ## Why the CPU
 
