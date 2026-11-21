@@ -1,8 +1,9 @@
 # Training Iris
 
-Files: `training/` (`my_chats.txt`, `my_tools.txt`, `prepare_data.py`,
-`train_tokenizer.py`, `tokenize_data.py`, `tool_test.txt`,
-`requirements.txt`), the `chat-model` target in the `Makefile`. Training
+Files: `training/` (`my_chats.txt`, `more_chats.txt`, `my_tools.txt`,
+`prepare_data.py`, `train_tokenizer.py`, `tokenize_data.py`,
+`finetune.py`, `tool_test.txt`, `requirements.txt`), the `chat-model` and
+`chat-finetune` targets in the `Makefile`. Training
 uses Andrej Karpathy's [llama2.c](https://github.com/karpathy/llama2.c)
 (MIT license), which `make chat-model` downloads into `training/llama2.c/`.
 
@@ -169,20 +170,41 @@ data, and they must stay out of it.
 
 ## Why the CPU
 
-On an M1 Mac with PyTorch 2.5.1, training this model on the GPU
+On an M1 Mac with PyTorch 2.5.1, `make chat-model` on the GPU
 (`IRIS_DEVICE=mps`) often doesn't learn: the loss stalls at about 4
-instead of going below 0.5, even though the same data on the CPU learns
-every time. It isn't the data or the settings: in tests the same command
-sometimes worked on the GPU and sometimes didn't. So `make chat-model`
-uses the CPU, about 0.6 seconds per iteration instead of 0.25. To try the
-GPU anyway (a newer PyTorch may fix it):
+instead of going below 0.5, while the same data on the CPU learns every
+time. The cause is llama2.c's data loader: it copies each batch to the
+GPU with `non_blocking=True` from pinned memory, and on MPS the model can
+start reading a batch before that copy has finished. So `make chat-model`
+uses the CPU, about 0.6 seconds per iteration.
+
+`make chat-finetune` (below) has its own small training loop in
+`training/finetune.py`, whose copies are ordinary blocking ones, and runs
+on the GPU without that problem.
+
+## Fine-tuning: teaching the trained Iris more
+
+`make chat-model` starts from random numbers every time. To teach the Iris
+you already have something new, without starting over:
 
 ```sh
-make chat-model IRIS_DEVICE=mps
+make chat-finetune      # about 8 minutes on an M1 Mac's GPU
+make disk-models
 ```
 
-and watch the first `step 500` line: below 0.5 is fine; around 4 means
-it's broken, so stop it (Ctrl+C) and use the CPU.
+It loads her checkpoint (`training/out/ckpt.pt`, which `make chat-model`
+writes; it isn't in git), keeps her size and tokenizer, and trains her
+further on the current data with a third of the learning rate: she keeps
+what she knew and adds the new examples. Every 100 steps it measures the
+validation loss and saves only when it's the best so far
+(`training/out/finetune/`), so the result is the best Iris of the run,
+not the last one.
+
+The data must be tokenized with *her* tokenizer: a model only understands
+the token numbers it was trained on. `make chat-model` makes a new
+SentencePiece tokenizer every time, so `chat-finetune` uses
+`models/iris_tok.bin` itself, with the same encoder planckOS runs
+(`tokenize_data.py`, checked against `src/llm/tokenizer.c`).
 
 ## Changing what Iris says
 
@@ -248,7 +270,7 @@ All of Iris's training data is written for planckOS in `my_chats.txt`,
 - `prepare_data.py` drops near-duplicate questions (the same once case,
   punctuation and spaces are ignored; `my_chats.txt` wins) and any line of
   `more_chats.txt` within 85% similarity of a held-out test message.
-  Tool requests are 60% of the single turns, so more chat doesn't crowd
+  Tool requests are 70% of the single turns, so more chat doesn't crowd
   out the tools. The facts in it come from the
 code: the commands and their usage from `help`, the apps, Notepad's keys,
 and how to write and run a program.

@@ -19,6 +19,7 @@
 #   make models       download the models that are missing or wrong (checksummed)
 #   make disk-models  copy the models onto disk.img, replacing what's there
 #   make chat-model   train Iris, the chat model, on this computer (training/)
+#   make chat-finetune  teach the trained Iris the current data, on the Mac GPU
 #   make publish-model  upload a retrained Iris to the GitHub release (maintainer)
 #   make clean        remove build/
 
@@ -77,7 +78,8 @@ QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
 
 # ---- targets -----------------------------------------------------------
 .PHONY: all iso run run-headless ready check-tools disk programs disk-sync asm-test \
-        templates-test iris-eval higgson-host higgson-test models disk-models chat-model publish-model clean
+        templates-test iris-eval higgson-host higgson-test models disk-models chat-model chat-finetune \
+        publish-model clean
 
 all: iso
 
@@ -206,6 +208,21 @@ chat-model: $(PYTHON) $(LLAMA2C)/train.py
 	cp $(TRAIN)/out/model.bin models/iris.bin
 	cp $(LLAMA2C)/data/tok$(IRIS_VOCAB).bin models/iris_tok.bin
 	@echo "chat-model: models/iris.bin and models/iris_tok.bin (make disk-models copies them)"
+
+# Fine-tunes the Iris in training/out/ckpt.pt (from 'make chat-model') on
+# the current data, without changing her size or tokenizer, and keeps the
+# step with the best validation loss (training/finetune.py). The data is
+# tokenized with her own tokenizer, models/iris_tok.bin. It runs on the
+# Mac GPU; FINETUNE_DEVICE=cpu works anywhere, just slower.
+FINETUNE_DEVICE ?= mps
+
+chat-finetune: $(PYTHON) $(LLAMA2C)/train.py $(TRAIN)/out/ckpt.pt models/iris_tok.bin
+	cd $(TRAIN) && .venv/bin/python prepare_data.py
+	$(PYTHON) $(TRAIN)/tokenize_data.py $(LLAMA2C) $(IRIS_VOCAB) models/iris_tok.bin
+	$(PYTHON) $(TRAIN)/finetune.py $(LLAMA2C) $(TRAIN)/out/ckpt.pt $(TRAIN)/out/finetune \
+	    --device=$(FINETUNE_DEVICE)
+	cp $(TRAIN)/out/finetune/model.bin models/iris.bin
+	@echo "chat-finetune: models/iris.bin (make disk-models copies it)"
 
 $(PYTHON): $(TRAIN)/requirements.txt
 	python3 -m venv $(TRAIN)/.venv
