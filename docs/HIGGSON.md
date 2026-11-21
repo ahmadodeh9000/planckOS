@@ -97,6 +97,78 @@ higgson: FIB.HGS line 5: unknown character '@'
 A missing `;` is reported on the line of the statement that needs it,
 and an unclosed `{` on the line where it opens.
 
+## GUI apps
+
+A Higgson program can open a window, draw in it, and react to the mouse,
+the keyboard and the clock. It uses the same window calls as assembly and
+C programs (`PROGRAMS_GUI.md`).
+
+### The event model
+
+A GUI program doesn't run in a loop waiting for things to happen.
+Instead:
+
+1. The main code runs once: it opens the window with `window()` and says
+   which func handles which event (`on_paint(draw);`, `on_click(clicked);`).
+2. The main code ends. The program stays loaded and its window stays open.
+3. From then on, planckOS calls the program's funcs when something happens:
+   `draw` when the window needs painting, `clicked` when it's clicked, and
+   so on. Each func runs, returns, and the program waits for the next event.
+4. The program ends for good when its window is closed (the close button,
+   or `close()`).
+
+So a func never draws because something happened; it changes the
+variables, then asks for a repaint with `repaint()`, and the paint func
+draws everything from those variables. That's also why **drawing only
+works inside a func**: planckOS only lets a window draw while it's being
+painted, into the picture the window manager has just cleared for it, and
+the main code runs before the first paint. (Strictly: only in the func
+given to `on_paint`, or a func it calls. Drawing elsewhere is ignored.)
+
+### Built-in functions
+
+| Call | What it does |
+|---|---|
+| `window("title", width, height);` | opens the program's window (at most 800 x 600) |
+| `on_paint(f);` | `f` draws the window, whenever it needs painting |
+| `on_click(f);` | `f` runs when the window is clicked; `mouse_x`, `mouse_y` say where |
+| `on_key(f);` | `f` runs when a key is pressed; `key` says which |
+| `on_timer(f);` | `f` runs once a second |
+| `rect(x, y, w, h, color);` | fills a rectangle |
+| `line(x0, y0, x1, y1, color);` | draws a line |
+| `text(x, y, "string", color);` | writes a string (characters are 8 x 16 pixels) |
+| `number(x, y, expression, color);` | writes a number |
+| `repaint();` | asks for the window to be painted again soon |
+| `close();` | closes the window, which ends the program |
+
+Positions are in pixels from the top left corner of the window's inside.
+
+### Built-in values
+
+| Value | What it is |
+|---|---|
+| `mouse_x`, `mouse_y` | where the last click was, inside the window |
+| `key` | the code of the last key pressed (`a` is 97, Enter is 10) |
+| `hour()`, `minute()`, `second()` | the time now, from the clock chip |
+| `BLACK WHITE RED GREEN BLUE YELLOW CYAN MAGENTA GRAY ORANGE` | colors |
+
+Any number works as a color too: `0xRRGGBB`, like `0xFF8800` for orange.
+These names are taken: a program can't use them for its own variables or
+funcs, nor change the values.
+
+### The rules
+
+The compiler checks these, and says which line breaks them:
+
+- `window()` comes once, in the main code itself (not inside a func,
+  `if` or `while`), so it runs exactly once.
+- In the main code, `on_paint()` and the others, `repaint()` and `close()`
+  must come after `window()`: they need the window to exist already.
+  Funcs run later, on events, so in a func it's enough that the program
+  calls `window()` somewhere.
+- `rect()`, `line()`, `text()` and `number()` only inside a func.
+- The func given to `on_click()` and the others must exist.
+
 ## Using it
 
 In a Terminal:
