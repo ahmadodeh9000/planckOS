@@ -76,11 +76,12 @@ scripts/        shell scripts behind make run: check_tools, get_models,
 src/
   kernel.c      kmain: brings everything up in order
   arch/         CPU-specific: GDT, IDT/PIC, interrupt stubs, port I/O,
-                syscalls, Multiboot structures
+                syscalls, Multiboot structures, setjmp/longjmp (jump.s)
   mm/           pmm (physical pages), paging, kmalloc (heap)
   drivers/      serial, timer (PIT), rtc, vga (text), keyboard, mouse, ata, power
   fs/           fat12
   lib/          common types, string/memory helpers, console sinks + printf,
+                ksnprintf (format.c: formatting into a string),
                 float math on the x87 (sqrtf, expf, logf, ...)
   gfx/          surfaces (pixel drawing), framebuffer, font
   gui/          event queue, main loop, window manager, taskbar, menu,
