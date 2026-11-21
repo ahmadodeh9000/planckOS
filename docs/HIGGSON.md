@@ -169,6 +169,46 @@ The compiler checks these, and says which line breaks them:
 - `rect()`, `line()`, `text()` and `number()` only inside a func.
 - The func given to `on_click()` and the others must exist.
 
+## The examples
+
+`make run` copies these onto the disk (from `programs/`). Compile one with
+`higgson NAME.HGS NAME.ELF`, then `exec NAME.ELF`.
+
+| File | Shows |
+|---|---|
+| `HELLO.HGS` | `print` with a string (compile it as `HI.ELF`: `HELLO.ELF` is the C example) |
+| `FIB.HGS` | variables and a `while` loop: the first 10 Fibonacci numbers |
+| `COUNT.HGS` | a countdown: `while`, with an `if` inside |
+| `CLICKER.HGS` | a button that counts its clicks |
+| `CLOCK.HGS` | a digital clock, updated by `on_timer` |
+| `KEYS.HGS` | the code of the last key pressed |
+| `PAINT.HGS` | click squares to paint them, click again to erase |
+
+![The GUI examples](higgson-apps.png)
+
+**CLICKER** is the smallest complete app. The main code opens the window,
+creates the `clicks` variable and registers two funcs, then ends.
+`draw` paints the button, its label and the count. `clicked` checks
+that `mouse_x`/`mouse_y` are on the button (a long `&&` condition), adds
+one to `clicks` and calls `repaint()`, so `draw` runs again with the new
+number. `clicked` never draws itself.
+
+**CLOCK** uses `on_timer(tick)`: once a second `tick` asks for a repaint,
+and `draw` reads `hour()`, `minute()` and `second()`. Funcs have no
+parameters, so `two_digits` gets its number through the global `value`
+and moves the global `x` along as it draws, adding a leading `0` below 10.
+
+**KEYS** draws something different before the first key (`pressed` is 0):
+`return;` leaves `draw` early.
+
+**PAINT** needs to remember a picture, because the window is cleared
+before every paint. Higgson has no arrays, so each of the 8 rows is one
+number, whose bits say which of its 16 squares are painted: square `c` is
+the bit worth 2 to the power `c`. `load` and `store` copy row `r` into
+and out of `bits` (with an `if` per row: there's no other way to pick a
+variable by number), `clicked` flips one bit by adding or subtracting it,
+and `draw` walks each row's bits with `% 2` and `/ 2`.
+
 ## Using it
 
 In a Terminal:

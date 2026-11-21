@@ -11,7 +11,7 @@
 #   make run-headless the same without a window; serial output goes to stdout
 #   make disk         create a blank FAT12 disk.img if it does not exist
 #   make programs     build programs/*.c and copy them, plus the programs/*.asm
-#                     examples, onto disk.img (mtools)
+#                     and programs/*.hgs examples, onto disk.img (mtools)
 #   make asm-test     check the built-in assembler's bytes against NASM
 #   make higgson-host build the Higgson compiler for this computer
 #   make models       download the models that are missing or wrong (checksummed)
@@ -58,9 +58,11 @@ DEPS     := $(OBJS:.o=.d)
 # Programs for 'exec': each programs/<name>.c becomes build/programs/<name>.elf,
 # copied to the disk as <NAME>.ELF (so <name> must be at most 8 characters).
 # The assembly examples programs/*.asm are copied as they are, as <NAME>.ASM,
-# for the built-in 'asm' command.
+# for the built-in 'asm' command, and the Higgson examples programs/*.hgs as
+# <NAME>.HGS, for 'higgson' (docs/HIGGSON.md).
 PROG_SRCS    := $(wildcard programs/*.c)
 PROG_ASM     := $(wildcard programs/*.asm)
+PROG_HGS     := $(wildcard programs/*.hgs)
 PROGRAMS     := $(patsubst programs/%.c,$(BUILD)/programs/%.elf,$(PROG_SRCS))
 PROG_CFLAGS  := -std=gnu99 -ffreestanding -fno-stack-protector -fno-builtin \
                 -nostdlib -fno-pic -Wall -Wextra -O2 $(HOST_CFLAGS)
@@ -141,7 +143,7 @@ MODEL_SOURCES := iris.bin=$(RELEASE_URL)/iris.bin iris_tok.bin=$(RELEASE_URL)/ir
 # What goes onto the disk: models/<file>:<8.3 name>, and the example programs.
 DISK_MODELS := models/iris.bin:IRIS.BIN models/iris_tok.bin:IRISTOK.BIN \
                models/stories260K.bin:S260K.BIN models/tok512.bin:TOK512.BIN
-DISK_FILES  := $(DISK_MODELS) $(PROGRAMS) $(PROG_ASM)
+DISK_FILES  := $(DISK_MODELS) $(PROGRAMS) $(PROG_ASM) $(PROG_HGS)
 DISK_STAMPS := $(BUILD)/disk-sync
 
 models:
@@ -153,7 +155,7 @@ disk-sync: $(DISK) $(PROGRAMS) models
 	@sh scripts/sync_disk.sh $(DISK) $(DISK_STAMPS) $(DISK_FILES)
 
 programs: $(PROGRAMS) $(DISK)
-	@sh scripts/sync_disk.sh $(DISK) $(DISK_STAMPS) $(PROGRAMS) $(PROG_ASM)
+	@sh scripts/sync_disk.sh $(DISK) $(DISK_STAMPS) $(PROGRAMS) $(PROG_ASM) $(PROG_HGS)
 
 # Copies the models onto the disk even if the disk has other files with
 # those names: for when you want to replace an older Iris on purpose.

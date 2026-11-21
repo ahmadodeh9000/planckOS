@@ -1,0 +1,41 @@
+// clock.hgs - a digital clock: hh:mm:ss, updated every second.
+//
+// In a Terminal:  higgson CLOCK.HGS CLOCK.ELF   then   exec CLOCK.ELF
+
+window("Higgson clock", 200, 70);
+
+let x = 0;          // where the next part of the time goes
+let value = 0;      // the number two_digits draws (funcs have no parameters)
+
+on_paint(draw);
+on_timer(tick);     // tick runs once a second
+
+func tick() {
+    repaint();
+}
+
+// Draws 'value' with two digits, so 9 minutes shows as 09.
+func two_digits() {
+    if (value < 10) {
+        text(x, 26, "0", GREEN);
+        number(x + 8, 26, value, GREEN);
+    } else {
+        number(x, 26, value, GREEN);
+    }
+    x = x + 16;         // each character is 8 pixels wide
+}
+
+func draw() {
+    rect(0, 0, 200, 70, BLACK);
+    x = 68;             // 8 characters of 8 pixels, centered in 200
+    value = hour();
+    two_digits();
+    text(x, 26, ":", GREEN);
+    x = x + 8;
+    value = minute();
+    two_digits();
+    text(x, 26, ":", GREEN);
+    x = x + 8;
+    value = second();
+    two_digits();
+}

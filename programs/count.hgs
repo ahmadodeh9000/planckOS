@@ -1,0 +1,14 @@
+// count.hgs - a countdown with a while loop, and an if inside it.
+//
+// In a Terminal:  higgson COUNT.HGS COUNT.ELF   then   exec COUNT.ELF
+
+let n = 10;
+
+while (n > 0) {
+    print(n);
+    if (n == 3) {
+        print("almost there...");
+    }
+    n = n - 1;
+}
+print("liftoff!");

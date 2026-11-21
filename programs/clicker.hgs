@@ -1,0 +1,29 @@
+// clicker.hgs - a button that counts its clicks.
+//
+// In a Terminal:  higgson CLICKER.HGS CLICKER.ELF   then   exec CLICKER.ELF
+//
+// The main code opens the window and says which func handles which event,
+// then ends; the window stays open and planckOS calls the funcs: draw
+// whenever the window needs painting, clicked on every mouse click.
+
+window("Clicker", 220, 110);
+
+let clicks = 0;
+on_paint(draw);
+on_click(clicked);
+
+func draw() {
+    rect(20, 16, 180, 40, BLUE);        // the button
+    text(74, 28, "Click me!", WHITE);
+    text(20, 76, "Clicks:", BLACK);
+    number(84, 76, clicks, BLACK);
+}
+
+func clicked() {
+    // Only count clicks on the button. mouse_x and mouse_y are where the
+    // click was, from the window's top left corner.
+    if (mouse_x >= 20 && mouse_x < 200 && mouse_y >= 16 && mouse_y < 56) {
+        clicks = clicks + 1;
+        repaint();      // ask for draw to run again, with the new count
+    }
+}

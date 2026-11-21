@@ -1,0 +1,91 @@
+// paint.hgs - click a square to paint it, click it again to erase it.
+//
+// In a Terminal:  higgson PAINT.HGS PAINT.ELF   then   exec PAINT.ELF
+//
+// planckOS clears a window before each paint, so the program has to
+// remember the whole picture and draw all of it every time. Higgson has
+// no arrays, so each row of squares is kept as one number: square c of a
+// row is painted when bit c of the row's number is 1 (the bit worth 2 to
+// the power c). Eight rows, so eight variables.
+
+let size = 16;          // each square is 16 x 16 pixels
+let columns = 16;
+let rows = 8;
+
+window("Paint", 256, 128);
+
+let row0 = 0;
+let row1 = 0;
+let row2 = 0;
+let row3 = 0;
+let row4 = 0;
+let row5 = 0;
+let row6 = 0;
+let row7 = 0;
+
+let r = 0;              // the row load and store work on
+let bits = 0;           // ... and its number
+
+on_paint(draw);
+on_click(clicked);
+
+// bits = the number of row r.
+func load() {
+    if (r == 0) { bits = row0; }
+    if (r == 1) { bits = row1; }
+    if (r == 2) { bits = row2; }
+    if (r == 3) { bits = row3; }
+    if (r == 4) { bits = row4; }
+    if (r == 5) { bits = row5; }
+    if (r == 6) { bits = row6; }
+    if (r == 7) { bits = row7; }
+}
+
+// The number of row r = bits.
+func store() {
+    if (r == 0) { row0 = bits; }
+    if (r == 1) { row1 = bits; }
+    if (r == 2) { row2 = bits; }
+    if (r == 3) { row3 = bits; }
+    if (r == 4) { row4 = bits; }
+    if (r == 5) { row5 = bits; }
+    if (r == 6) { row6 = bits; }
+    if (r == 7) { row7 = bits; }
+}
+
+func clicked() {
+    let c = mouse_x / size;
+    r = mouse_y / size;
+    let bit = 1;            // 2 to the power c
+    let i = 0;
+    while (i < c) {
+        bit = bit * 2;
+        i = i + 1;
+    }
+    load();
+    if (bits / bit % 2 == 1) {
+        bits = bits - bit;      // painted: erase it
+    } else {
+        bits = bits + bit;      // empty: paint it
+    }
+    store();
+    repaint();
+}
+
+func draw() {
+    r = 0;
+    while (r < rows) {
+        load();
+        let column = 0;
+        while (column < columns) {
+            let color = WHITE;
+            if (bits % 2 == 1) {
+                color = MAGENTA;
+            }
+            rect(column * size + 1, r * size + 1, size - 2, size - 2, color);
+            bits = bits / 2;    // the next square's bit moves to the bottom
+            column = column + 1;
+        }
+        r = r + 1;
+    }
+}

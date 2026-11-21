@@ -1,0 +1,16 @@
+// fib.hgs - the first 10 Fibonacci numbers: each one is the sum of the
+// two before it.
+//
+// In a Terminal:  higgson FIB.HGS FIB.ELF   then   exec FIB.ELF
+
+let a = 0;          // the current number
+let b = 1;          // the one after it
+let n = 0;          // how many we've printed
+
+while (n < 10) {
+    print(a);
+    let next = a + b;
+    a = b;
+    b = next;
+    n = n + 1;
+}

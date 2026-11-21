@@ -1,0 +1,27 @@
+// keys.hgs - shows the code of the last key pressed.
+//
+// In a Terminal:  higgson KEYS.HGS KEYS.ELF   then   exec KEYS.ELF
+// Click the window, then type: 'a' is 97, Enter is 10, Space is 32.
+
+window("Keys", 220, 80);
+
+let pressed = 0;    // how many keys so far
+
+on_paint(draw);
+on_key(typed);
+
+func typed() {
+    pressed = pressed + 1;
+    repaint();
+}
+
+func draw() {
+    if (pressed == 0) {
+        text(16, 16, "Press a key", GRAY);
+        return;
+    }
+    text(16, 16, "Last key:", BLACK);
+    number(96, 16, key, RED);
+    text(16, 44, "Keys pressed:", BLACK);
+    number(128, 44, pressed, BLUE);
+}

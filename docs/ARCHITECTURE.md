@@ -68,7 +68,8 @@ boot/           boot.s (Multiboot header, entry), grub.cfg
 link.ld         where every section goes in memory
 Makefile        build rules, see BUILDING.md
 programs/       example programs for 'exec': hello.c, planck.h, program.ld,
-                and hello.asm, loop.asm for the built-in assembler
+                hello.asm, loop.asm for the built-in assembler, and *.hgs
+                for the Higgson compiler
 tests/asm/      'make asm-test': compares the assembler's bytes with NASM's
 tools/higgson-host/  the Higgson compiler for a normal computer (make higgson-host)
 models/         language models (downloaded or trained, not in git), MODELS.sha256

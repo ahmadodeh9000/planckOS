@@ -1,0 +1,6 @@
+// hello.hgs - the smallest Higgson program: print a line.
+//
+// In a Terminal:  higgson HELLO.HGS HI.ELF   then   exec HI.ELF
+// (HELLO.ELF on the disk is the C version, so this uses another name.)
+
+print("Hello from Higgson!");
