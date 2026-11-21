@@ -1,5 +1,6 @@
 /*
- * jump.h - setjmp and longjmp: jump back out of deep function calls.
+ * jump.h - setjmp and longjmp: jump back out of deep function calls; and
+ * call_on_stack: run a function on a different stack.
  *
  * setjmp(env) saves where it was called from and returns 0. A later
  * longjmp(env, value), from any function called since, throws away all
@@ -28,5 +29,11 @@ int setjmp(jmp_buf env) __attribute__((returns_twice));
 /* Never returns; setjmp returns 'value' instead (1 if value is 0, so it
    can always be told apart from the first return). */
 void longjmp(jmp_buf env, int value) __attribute__((noreturn));
+
+/* Call fn(arg) on another stack, whose top (highest address, 16-byte
+   aligned) is stack_top, and return when it does. For deep recursion that
+   would overflow the 8 KB kernel stack. A longjmp from inside fn to a
+   setjmp made before the call is fine: it restores the old esp too. */
+void call_on_stack(void (*fn)(void*), void* arg, void* stack_top);
 
 #endif

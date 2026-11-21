@@ -77,6 +77,14 @@ return address; `longjmp` puts them back and jumps to that address, so
 parser (with its 256-name tables) and emitter are allocated in the
 arena, not as local variables.
 
+**Its own stack.** Even so, the parser's recursion needs stack: each
+level of parentheses goes through every precedence level (`||`, `&&`,
+`==`, `<`, `+`, `*`, unary), about 700 bytes. Fourteen levels measured
+7.8 KB, nearly the whole kernel stack. So in the kernel the compile runs
+on a 32 KB stack of its own (`compiler_stack` in `platform_kernel.c`):
+`call_on_stack` in `arch/jump.s` points esp at it, calls the compiler, and
+points esp back. A longjmp from an error restores the old esp anyway.
+
 ## What changed from planckBASIC
 
 The import commit has the original exactly as it was. Besides the

@@ -1,4 +1,4 @@
-; jump.s - setjmp and longjmp (see jump.h).
+; jump.s - setjmp, longjmp and call_on_stack (see jump.h).
 ;
 ; A C function may change eax, ecx and edx freely, but must give back
 ; ebx, esi, edi, ebp and esp as it found them. So that's all setjmp saves,
@@ -16,6 +16,7 @@ JB_EIP  equ 20
 
 global setjmp
 global longjmp
+global call_on_stack
 
 ; int setjmp(jmp_buf env)
 setjmp:
@@ -45,3 +46,18 @@ longjmp:
     mov ebp, [edx + JB_EBP]
     mov esp, [edx + JB_ESP] ; drops every frame pushed since setjmp
     jmp [edx + JB_EIP]
+
+; void call_on_stack(void (*fn)(void*), void* arg, void* stack_top)
+; Calls fn(arg) with esp at stack_top, then comes back to our own stack.
+; ebp marks where our stack was, and fn preserves ebp like any C function.
+call_on_stack:
+    push ebp
+    mov ebp, esp
+    mov eax, [ebp + 8]      ; fn
+    mov ecx, [ebp + 12]     ; arg
+    mov esp, [ebp + 16]     ; from here on, the other stack
+    push ecx
+    call eax
+    mov esp, ebp            ; back to ours
+    pop ebp
+    ret
