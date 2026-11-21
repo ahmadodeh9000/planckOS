@@ -9,6 +9,7 @@
 #include "shell/shell.h"
 #include "shell/logo.h"
 #include "shell/shell_iris.h"
+#include "shell/shell_higgson.h"
 #include "gui/event.h"
 #include "fs/fat12.h"
 #include "mm/kmalloc.h"
@@ -92,6 +93,7 @@ static const char* const help_lines[] = {
     "del <file>         - delete a file",
     "exec <file>        - run an ELF program",
     "asm <in> <out>     - assemble <in> into the program <out>",
+    "higgson <in> <out> - compile Higgson <in> into a program (or .ASM)",
     "iris (or chat)     - talk to Iris, planckOS's assistant",
     "llm-test           - check the language model against llama2.c",
     "quit               - shutdown the os",
@@ -304,6 +306,25 @@ static void cmd_asm(shell_t* sh, const char* args) {
     }
 }
 
+/* higgson <in.hgs> <out>: compile a Higgson program. */
+static void cmd_higgson(shell_t* sh, const char* args) {
+    char in_name[FAT12_NAME_MAX];
+    const char* rest = split_word(args, in_name, FAT12_NAME_MAX);
+    char out_name[FAT12_NAME_MAX];
+    const char* end = rest ? split_word(rest, out_name, FAT12_NAME_MAX) : NULL;
+
+    if (!end || !in_name[0] || !out_name[0] || *end) {
+        console_print(sh->con, "Usage: higgson <source.hgs> <program.elf or .asm>\n");
+        return;
+    }
+    uint32_t size;
+    uint8_t* source = shell_read_file(sh, "higgson", in_name, HIGGSON_MAX_SOURCE, &size);
+    if (source) {
+        shell_higgson(sh->con, in_name, out_name, (const char*)source, size);
+        kfree(source);
+    }
+}
+
 /* llm-test [model tokenizer]: run the test model and compare with llama2.c.
    Other files can be given to check that bad ones are refused cleanly. */
 static void cmd_llm_test(shell_t* sh, const char* args) {
@@ -348,6 +369,7 @@ static const shell_command commands[] = {
     { "del",   cmd_del   },
     { "exec",  cmd_exec  },
     { "asm",   cmd_asm   },
+    { "higgson", cmd_higgson },
     { "llm-test", cmd_llm_test },
     { "iris",  cmd_iris  },
     { "chat",  cmd_iris  },

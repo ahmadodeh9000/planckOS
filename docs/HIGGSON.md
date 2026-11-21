@@ -9,6 +9,25 @@ The compiler started as `planckBASIC`, written by following Austin
 Henley's *Teeny Tiny Compiler* tutorial: a lexer, a recursive-descent
 parser and an emitter.
 
+## Using it
+
+In a Terminal:
+
+```
+higgson FIB.HGS FIB.ELF     compile to a program, then: exec FIB.ELF
+higgson FIB.HGS FIB.ASM     write the assembly instead, to read in Notepad
+```
+
+The assembly goes from the compiler to the assembler in memory; only the
+finished program is written to the disk. An error stops the compile and
+says where:
+
+```
+higgson: FIB.HGS line 5: expected ';' after statement
+```
+
+and nothing is written. Source files can be up to 32 KB.
+
 ## One source, two builds
 
 ```
