@@ -7,11 +7,11 @@ file with the wrong checksum is never used.
 
 | File | What it is | Where it comes from | License |
 |------|------------|---------------------|---------|
-| `iris.bin`, `iris_tok.bin` | Iris, planckOS's assistant: a 1.07M-parameter model and its 512-token tokenizer | assets of the GitHub release [`iris-v1`](https://github.com/ahmadodeh9000/planckOS/releases/tag/iris-v1) | GNU GPL v3, like planckOS |
+| `iris.bin`, `iris_tok.bin` | Iris, planckOS's assistant: a 1.07M-parameter model and its 512-token tokenizer | assets of the GitHub release [`iris-v2`](https://github.com/ahmadodeh9000/planckOS/releases/tag/iris-v2) | GNU GPL v3, like planckOS |
 | `stories260K.bin`, `tok512.bin` | the test model for `llm-test` | [karpathy/tinyllamas](https://huggingface.co/karpathy/tinyllamas) | MIT |
 
 **Iris's training data and what it allows.** Iris was trained only on
-`training/my_chats.txt` and `training/my_tools.txt`, conversations written
+`training/my_chats.txt`, `more_chats.txt` and `my_tools.txt`, conversations written
 for planckOS and part of this GPL-licensed repository, so the model is
 published under the same license. The tools used to train her don't limit
 how the model may be shared: llama2.c's training code (MIT), SentencePiece

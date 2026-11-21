@@ -234,7 +234,8 @@ an `IRIS.BIN` it didn't put on the disk itself, and a model you trained
 is different from the published one.)
 
 **Sharing a retrained Iris.** Everyone else gets the model from the GitHub
-release `iris-v1` (`make models`). To publish a new one (maintainer only):
+release `iris-v2` (`make models`; the first version, `iris-v1`, stays
+available). To publish a new one (maintainer only):
 
 ```sh
 make publish-model                       # uploads models/iris*.bin to the release
@@ -271,13 +272,45 @@ All of Iris's training data is written for planckOS in `my_chats.txt`,
   punctuation and spaces are ignored; `my_chats.txt` wins) and any line of
   `more_chats.txt` within 85% similarity of a held-out test message.
   Tool requests are 70% of the single turns, so more chat doesn't crowd
-  out the tools. The facts in it come from the
-code: the commands and their usage from `help`, the apps, Notepad's keys,
+  out the tools.
+
+The facts in it come from the code: the commands and their usage from `help`, the apps, Notepad's keys,
 and how to write and run a program.
 
 ## Results
 
-The run that made the current `models/iris.bin`:
+### iris-v2: the chattier Iris (`make chat-finetune`)
+
+The current `models/iris.bin`: iris-v1 (below) fine-tuned with
+`more_chats.txt`, the same size and tokenizer.
+
+- **Data:** 1,113 chat examples (`my_chats.txt` counted three times), 45
+  conversations, 113 tool patterns, after dropping 29 near-duplicates and
+  17 lines too close to the tests: 40,000 conversations, 3.3 million
+  training tokens.
+- **Training:** 1,500 steps on an M1 Mac's GPU in 8 minutes 43 seconds.
+  The validation loss went from 1.649 (iris-v1 on the new data) to a best
+  of **0.2548** at step 1400, which is the step that was kept.
+- **Tools, on the 50 held-out requests:** her tag was right 34 times
+  (68%, iris-v1: 66%), and the right tool ran all 50 times, as before.
+  A first run with tool requests at 60% of turns scored 60%; at 70% they
+  held.
+- **Speed in QEMU:** the same as iris-v1 (same size, so the same work per
+  token).
+- **Chatting** (`tests/iris/eval_questions.txt`, `chatty_chats.txt`, never
+  trained on): "im so tired today", "this is really hard", "i finally got
+  my program working!!", "what is 17 times 23", "is it going to rain
+  tomorrow" and "i'm new here" now get warm or honest answers where iris-v1
+  answered with a command list or a random tool tag; "another one" after a
+  joke gets a different joke. Still weak: remembering a name told in a way
+  the data doesn't use ("my name is dana" ... "what's my name"), some small
+  talk still triggers a tool tag, and "and how do i write one" after "how
+  do i run a program" now gets the Notepad answer instead of the assembly
+  one.
+
+### iris-v1: trained from scratch (`make chat-model`)
+
+The first release, and the starting point for iris-v2:
 
 - **Model:** 1,070,464 parameters (`dim` 128, 5 layers, 4 heads,
   vocabulary 512, context 256), 4.3 MB.

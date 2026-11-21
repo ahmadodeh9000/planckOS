@@ -138,7 +138,7 @@ endif
 # tokenizer are assets of the GitHub release $(RELEASE_TAG), the test model
 # stories260K comes from karpathy/tinyllamas (MIT license). 'make models'
 # downloads whatever is missing or doesn't match models/MODELS.sha256.
-RELEASE_TAG   := iris-v1
+RELEASE_TAG   := iris-v2
 RELEASE_URL   := https://github.com/ahmadodeh9000/planckOS/releases/download/$(RELEASE_TAG)
 MODELS_URL    := https://huggingface.co/karpathy/tinyllamas/resolve/main/stories260K
 MODEL_SOURCES := iris.bin=$(RELEASE_URL)/iris.bin iris_tok.bin=$(RELEASE_URL)/iris_tok.bin \

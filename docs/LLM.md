@@ -20,7 +20,7 @@ come next. Pick one, feed it back in, and repeat: that's how it writes.
 
 The model files aren't in git. `make run` takes care of them: it calls
 `make models`, which downloads whatever is missing (Iris from the GitHub
-release `iris-v1`, and `stories260K`, a test model with 260 thousand
+release `iris-v2`, and `stories260K`, a test model with 260 thousand
 parameters trained on the TinyStories dataset, from
 [karpathy/tinyllamas](https://huggingface.co/karpathy/tinyllamas), MIT
 license) and checks each file against `models/MODELS.sha256`. Then it

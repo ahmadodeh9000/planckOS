@@ -145,9 +145,9 @@ comes from SeaBIOS's VGA BIOS (GNU LGPL v3), see `src/gfx/font.c`.
   stored in this repository.
 - Iris is trained with llama2.c's `train.py` (MIT license), SentencePiece
   (Apache 2.0) and PyTorch (BSD-style), on conversations written for
-  planckOS (`training/my_chats.txt`, `training/my_tools.txt`); no public
+  planckOS (`training/my_chats.txt`, `more_chats.txt`, `my_tools.txt`); no public
   dataset is used. The trained model is published as assets of the GitHub
-  release `iris-v1` under the GNU GPL v3, like the rest of planckOS, and
+  release `iris-v2` under the GNU GPL v3, like the rest of planckOS, and
   `make models` downloads it; it isn't stored in this repository. Details:
   `models/README.md` and `src/llm/CREDITS.md`.
 - Iris's portrait (`src/apps/iris_avatar.c`) is original pixel art made

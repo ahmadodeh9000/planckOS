@@ -36,7 +36,7 @@ refuses to compile unless the target is 32-bit x86 (`__i386__`).
 | `make check-tools` | Only the tool check that `make run` starts with. |
 | `make disk` | Creates a blank 64 MB FAT12 `disk.img`, but only if it doesn't already exist. |
 | `make programs` | Builds every `programs/*.c` into `build/programs/*.elf` and copies each onto `disk.img` as `NAME.ELF`, plus the assembly examples `programs/*.asm` as `NAME.ASM` and the Higgson examples `programs/*.hgs` as `NAME.HGS` (see `EXEC.md`, `ASSEMBLER.md`, `HIGGSON.md`). |
-| `make models` | Downloads into `models/` whichever model files are missing or don't match `models/MODELS.sha256`: Iris from the GitHub release `iris-v1`, the test model from karpathy/tinyllamas (see `models/README.md`). |
+| `make models` | Downloads into `models/` whichever model files are missing or don't match `models/MODELS.sha256`: Iris from the GitHub release `iris-v2`, the test model from karpathy/tinyllamas (see `models/README.md`). |
 | `make disk-models` | Copies the models onto `disk.img` with 8.3 names (`IRIS.BIN`, `S260K.BIN`, ...), replacing files with those names: for a model you retrained yourself. |
 | `make publish-model` | Maintainer only, after `make chat-model`: uploads Iris to the release with `gh` and updates `models/MODELS.sha256` (commit it). |
 | `make asm-test` | Builds the built-in assembler for your computer and checks that its bytes for `tests/asm/encoding.asm` are identical to `nasm -O0`'s (see `ASSEMBLER.md`). |
