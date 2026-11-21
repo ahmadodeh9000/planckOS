@@ -285,6 +285,29 @@ on a 32 KB stack of its own (`compiler_stack` in `platform_kernel.c`):
 `call_on_stack` in `arch/jump.s` points esp at it, calls the compiler, and
 points esp back. A longjmp from an error restores the old esp anyway.
 
+## Testing
+
+`make higgson-test` runs on your computer, with the same core files:
+
+- every example in `programs/` must compile, and its assembly must
+  assemble with planckOS's assembler (built for your computer too);
+- every program in `tests/higgson/` is broken on purpose (a missing `;`,
+  a missing `}`, an unknown variable, an unknown function, drawing outside
+  a func, `window()` twice, an unclosed string, an unknown character),
+  and must fail with exactly the error on its first line:
+  `// expect: line 4: expected ';' after statement`.
+
+Inside planckOS, checked by hand in QEMU:
+
+- `higgson X.HGS X.ASM` for every example gives the same bytes as the
+  host build (`build/higgson-host/higgson X.HGS X.ASM`), and every
+  example compiles to a program that runs as expected;
+- each broken program prints its error with the right line, writes
+  nothing, and the shell carries on;
+- the higgson command logs the heap use before and after each compile to
+  the serial port (`higgson: heap used N before, N after`); it must be the
+  same, after a successful compile and after a failed one.
+
 ## What changed from planckBASIC
 
 The import commit has the original exactly as it was. Besides the

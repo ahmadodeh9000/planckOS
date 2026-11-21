@@ -1,0 +1,4 @@
+// expect: line 3: this string is never closed with "
+print("fine");
+print("not fine);
+print("never reached");

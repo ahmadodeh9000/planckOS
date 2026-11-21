@@ -1,0 +1,6 @@
+// expect: line 6: unknown function 'drwa'
+func draw() {
+    print("drawing");
+}
+draw();
+drwa();

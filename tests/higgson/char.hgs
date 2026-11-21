@@ -1,0 +1,4 @@
+// expect: line 4: unknown character '@'
+let a = 1;
+let b = 2;
+let c = a @ b;

@@ -43,6 +43,7 @@ refuses to compile unless the target is 32-bit x86 (`__i386__`).
 | `make chat-model` | Trains Iris, the chat model, on this computer and writes `models/iris.bin` and `models/iris_tok.bin` (about 40 minutes; see `TRAINING.md`). |
 | `make iris-eval` | Runs Iris's model and tool choice on this computer: prints sample conversations and scores the 50 held-out tool requests. |
 | `make higgson-host` | Builds the Higgson compiler for your computer as `build/higgson-host/higgson` (`higgson IN.HGS OUT.ASM`), from the same `src/higgson/` files as the kernel's (see `HIGGSON.md`). |
+| `make higgson-test` | Builds the Higgson compiler and the assembler for your computer, compiles and assembles every `programs/*.hgs` example, and checks that every broken program in `tests/higgson/` fails with the error and line its first line expects (see `HIGGSON.md`). |
 | `make templates-test` | Fills in every Iris app template with every color, assembles each with the built-in assembler and with NASM, and compares the bytes (see "Tools" in `LLM.md`). |
 | `make clean` | Deletes `build/`. |
 

@@ -1,0 +1,7 @@
+// expect: line 7: unknown variable 'cuont'
+let count = 0;
+while (count < 5) {
+    count = count + 1;
+}
+print(count);
+print(cuont);

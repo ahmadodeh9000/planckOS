@@ -1,0 +1,5 @@
+// expect: line 5: rect() only works inside a func: a window can only draw while it's painted
+window("Draw", 100, 100);
+func paint() {
+}
+rect(10, 10, 20, 20, RED);

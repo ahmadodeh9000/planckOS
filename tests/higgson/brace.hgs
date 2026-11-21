@@ -1,0 +1,7 @@
+// expect: line 3: this '{' is never closed with '}'
+let n = 3;
+while (n > 0) {
+    print(n);
+    n = n - 1;
+
+print("done");

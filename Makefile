@@ -14,6 +14,8 @@
 #                     and programs/*.hgs examples, onto disk.img (mtools)
 #   make asm-test     check the built-in assembler's bytes against NASM
 #   make higgson-host build the Higgson compiler for this computer
+#   make higgson-test check it: the examples compile and assemble, and broken
+#                     programs give the right error on the right line
 #   make models       download the models that are missing or wrong (checksummed)
 #   make disk-models  copy the models onto disk.img, replacing what's there
 #   make chat-model   train Iris, the chat model, on this computer (training/)
@@ -75,7 +77,7 @@ QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
 
 # ---- targets -----------------------------------------------------------
 .PHONY: all iso run run-headless ready check-tools disk programs disk-sync asm-test \
-        templates-test iris-eval higgson-host models disk-models chat-model publish-model clean
+        templates-test iris-eval higgson-host higgson-test models disk-models chat-model publish-model clean
 
 all: iso
 
@@ -240,6 +242,19 @@ higgson-host: $(HIGGSON_HOST)
 $(HIGGSON_HOST): $(HIGGSON_CORE) $(wildcard src/higgson/*.h) $(wildcard tools/higgson-host/*.c)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) -std=c99 -Wall -Wextra -O2 -Isrc -o $@ $(wildcard tools/higgson-host/*.c) $(HIGGSON_CORE)
+
+# Compiles every example in programs/ with the host build and assembles it
+# with the planckOS assembler (also built for this computer), then checks
+# that each broken program in tests/higgson/ fails with the error and line
+# its first line expects (tests/higgson/run.sh).
+HIGGSON_TEST := $(BUILD)/higgson-test
+
+higgson-test: $(HIGGSON_HOST)
+	@mkdir -p $(HIGGSON_TEST)
+	$(HOST_CC) -std=c99 -Wall -Wextra -Itests/asm/host -Isrc \
+	    -o $(HIGGSON_TEST)/asm_host tests/asm/asm_host.c $(wildcard src/asm/*.c)
+	@sh tests/higgson/run.sh $(HIGGSON_HOST) $(HIGGSON_TEST)/asm_host $(HIGGSON_TEST) \
+	    $(PROG_HGS) -- $(wildcard tests/higgson/*.hgs)
 
 # Fills in every Iris app template (src/apps/iris_templates.c) with every
 # color and with tricky titles, assembles each with the built-in assembler

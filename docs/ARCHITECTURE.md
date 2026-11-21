@@ -71,6 +71,7 @@ programs/       example programs for 'exec': hello.c, planck.h, program.ld,
                 hello.asm, loop.asm for the built-in assembler, and *.hgs
                 for the Higgson compiler
 tests/asm/      'make asm-test': compares the assembler's bytes with NASM's
+tests/higgson/  'make higgson-test': broken Higgson programs and their expected errors
 tools/higgson-host/  the Higgson compiler for a normal computer (make higgson-host)
 models/         language models (downloaded or trained, not in git), MODELS.sha256
 scripts/        shell scripts behind make run: check_tools, get_models,
