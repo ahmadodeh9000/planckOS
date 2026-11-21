@@ -54,19 +54,31 @@ static void hg_buffer_vformat(hg_buffer_t* buffer, const char* fmt, va_list args
 
 void hg_emitter_init(hg_emitter_t* emitter) {
     *emitter = (hg_emitter_t){ 0 };
+    emitter->target = &emitter->code;
+}
+
+void hg_emitter_section(hg_emitter_t* emitter, hg_section_t section) {
+    emitter->target = section == HG_SECTION_FUNCS ? &emitter->funcs : &emitter->code;
+}
+
+void hg_emitter_symbol(hg_emitter_t* emitter) {
+    if (++emitter->symbol_count > HG_ASM_MAX_SYMBOLS) {
+        hg_error(0, "program too big: planckOS's assembler holds %d labels and names",
+                 HG_ASM_MAX_SYMBOLS);
+    }
 }
 
 void hg_emit(hg_emitter_t* emitter, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    hg_buffer_vformat(&emitter->code, fmt, args, 0);
+    hg_buffer_vformat(emitter->target, fmt, args, 0);
     va_end(args);
 }
 
 void hg_emit_line(hg_emitter_t* emitter, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    hg_buffer_vformat(&emitter->code, fmt, args, 1);
+    hg_buffer_vformat(emitter->target, fmt, args, 1);
     va_end(args);
 }
 
@@ -85,6 +97,7 @@ void hg_data_line(hg_emitter_t* emitter, const char* fmt, ...) {
 }
 
 int hg_new_label(hg_emitter_t* emitter) {
+    hg_emitter_symbol(emitter);
     return ++emitter->label_count;
 }
 
@@ -97,6 +110,7 @@ const char* hg_emitter_text(hg_emitter_t* emitter, uint32_t* length) {
     hg_buffer_append(&text, "", 0);     /* never NULL, even when empty */
     if (emitter->header.length) hg_buffer_append(&text, emitter->header.data, emitter->header.length);
     if (emitter->code.length)   hg_buffer_append(&text, emitter->code.data, emitter->code.length);
+    if (emitter->funcs.length)  hg_buffer_append(&text, emitter->funcs.data, emitter->funcs.length);
     if (emitter->data.length)   hg_buffer_append(&text, emitter->data.data, emitter->data.length);
     *length = text.length;
     return text.data;

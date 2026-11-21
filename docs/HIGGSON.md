@@ -9,6 +9,94 @@ The compiler started as `planckBASIC`, written by following Austin
 Henley's *Teeny Tiny Compiler* tutorial: a lexer, a recursive-descent
 parser and an emitter.
 
+## The language
+
+A Higgson program looks like a small C program without types: every
+value is a whole number (a 32-bit signed int).
+
+```
+// fib.hgs: the first 10 Fibonacci numbers
+let a = 0;
+let b = 1;
+let n = 0;
+while (n < 10) {
+    print(a);
+    let next = a + b;
+    a = b;
+    b = next;
+    n = n + 1;
+}
+```
+
+### Statements
+
+| Statement | What it does |
+|---|---|
+| `let x = 5;` | declares the variable `x` and gives it a value |
+| `x = x + 1;` | gives an existing variable a new value |
+| `print("hello");` | prints a string and a newline |
+| `print(x * 2);` | prints a number and a newline |
+| `if (x > 3) { ... }` | runs the block if the condition isn't 0 |
+| `if (...) { ... } else { ... }` | one block or the other; `else if (...)` works too |
+| `while (n > 0) { ... }` | runs the block again and again while the condition isn't 0 |
+| `func name() { ... }` | defines a function (no parameters yet) |
+| `name();` | calls a function |
+| `return;` | leaves a function early (in the main code: ends the program) |
+
+Every statement ends with `;`, except the ones that end with a `}` block.
+Keywords are lowercase. Comments are `// to the end of the line` and
+`/* anything, even several lines */`.
+
+**Variables** must be declared with `let` before they're used, further
+up in the file. Every variable is global: one variable for the whole
+program, even if its `let` is inside a function. A second `let` with the
+same name is an error.
+
+**Functions** can be defined anywhere at the top level, before or after
+the code that calls them, but not inside another function or inside
+`if` or `while`. They take no parameters and give back no value; they
+work with the (global) variables.
+
+**The main code** is everything outside functions. It runs from top to
+bottom when the program starts; function bodies run only when called.
+
+### Values and operators
+
+Numbers are written in decimal (`42`, up to 2147483647) or hex
+(`0xFF8800`, up to `0xFFFFFFFF`). There are no decimals and no strings in
+calculations; strings only appear in `print` (and, for apps, `text`).
+
+From loosest to tightest, as in C:
+
+| Operators | Meaning |
+|---|---|
+| `\|\|` | or: 1 if either side isn't 0 |
+| `&&` | and: 1 if both sides aren't 0 |
+| `==` `!=` | equal, not equal (1 or 0) |
+| `<` `<=` `>` `>=` | comparisons (1 or 0) |
+| `+` `-` | add, subtract |
+| `*` `/` `%` | multiply, divide, remainder (rounded toward 0, as in C) |
+| `-x` `!x` | minus, not (`!x` is 1 when x is 0) |
+
+`&&` and `||` stop early, as in C: in `a && b`, `b` isn't computed if `a`
+is 0. Dividing by 0 stops the program (`exec` reports a crash).
+
+### Errors
+
+The compiler stops at the first error and says which line it's on:
+
+```
+higgson: FIB.HGS line 4: expected ';' after statement
+higgson: FIB.HGS line 7: unknown variable 'cuont'
+higgson: FIB.HGS line 9: unknown function 'drwa'
+higgson: FIB.HGS line 3: this '{' is never closed with '}'
+higgson: FIB.HGS line 2: this string is never closed with "
+higgson: FIB.HGS line 5: unknown character '@'
+```
+
+A missing `;` is reported on the line of the statement that needs it,
+and an unclosed `{` on the line where it opens.
+
 ## Using it
 
 In a Terminal:

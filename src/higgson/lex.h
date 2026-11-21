@@ -6,29 +6,27 @@
 
 #include "higgson/platform.h"
 
+#define HG_NAME_MAX     24      /* longest name: with its label prefix it
+                                   must fit the assembler's 31 characters */
+#define HG_STRING_MAX   200     /* longest string, to fit one assembly line */
+
 // hg tokens
 
 
 typedef enum {
 	TOK_EOF,
-	TOK_NEWLINE,
 	TOK_NUMBER,
 	TOK_IDENT,
 	TOK_STRING,
 
-	// KEWWORDS
+	// KEYWORDS
 	TOK_LET,
-	TOK_GOTO,
-	TOK_LABEL,
 	TOK_IF,
 	TOK_ELSE,
-	TOK_THEN,
-	TOK_ENDIF,
 	TOK_WHILE,
-	TOK_ENDWHILE,
 	TOK_PRINT,
-	TOK_INPUT,
-	TOK_REPEAT,
+	TOK_FUNC,
+	TOK_RETURN,
 
 	// OPS
 	TOK_EQ,
@@ -36,12 +34,24 @@ typedef enum {
 	TOK_MINUS,
 	TOK_SLASH,
 	TOK_STAR, // *
+	TOK_PERCENT,
 	TOK_EQEQ, // == 
 	TOK_LT,
 	TOK_NOTE,
 	TOK_LTE,
 	TOK_GT,
-	TOK_GTE
+	TOK_GTE,
+	TOK_AND, // &&
+	TOK_OR,  // ||
+	TOK_NOT, // !
+
+	// PUNCTUATION
+	TOK_LPAREN,
+	TOK_RPAREN,
+	TOK_LBRACE,
+	TOK_RBRACE,
+	TOK_COMMA,
+	TOK_SEMICOLON
 
 
 } hg_token_type_t;
