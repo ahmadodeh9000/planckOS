@@ -233,8 +233,23 @@ next to her answer anyway.
 
 ## The data
 
-All of Iris's training data is written for planckOS in `my_chats.txt` and
-`my_tools.txt`; no public dataset is used. The facts in it come from the
+All of Iris's training data is written for planckOS in `my_chats.txt`,
+`more_chats.txt` and `my_tools.txt`; no public dataset is used.
+
+- `my_chats.txt` is the main file: questions about planckOS and her own
+  answers. It counts three times as much as `more_chats.txt`.
+- `more_chats.txt` is everyday conversation: small talk, feelings ("i'm
+  tired", "this is hard"), good news, jokes, saying "i'm not sure" instead
+  of guessing, the same questions typed in slang or with typos, and short
+  conversations where she has to remember what was said ("call me Sam" ...
+  "who am i"). `{name}`, `{color}` and `{thing}` get a random value per
+  conversation, often a made-up name, so she learns to copy rather than to
+  memorize one name.
+- `prepare_data.py` drops near-duplicate questions (the same once case,
+  punctuation and spaces are ignored; `my_chats.txt` wins) and any line of
+  `more_chats.txt` within 85% similarity of a held-out test message.
+  Tool requests are 60% of the single turns, so more chat doesn't crowd
+  out the tools. The facts in it come from the
 code: the commands and their usage from `help`, the apps, Notepad's keys,
 and how to write and run a program.
 
