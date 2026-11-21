@@ -13,6 +13,7 @@
 #   make programs     build programs/*.c and copy them, plus the programs/*.asm
 #                     examples, onto disk.img (mtools)
 #   make asm-test     check the built-in assembler's bytes against NASM
+#   make higgson-host build the Higgson compiler for this computer
 #   make models       download the models that are missing or wrong (checksummed)
 #   make disk-models  copy the models onto disk.img, replacing what's there
 #   make chat-model   train Iris, the chat model, on this computer (training/)
@@ -72,7 +73,7 @@ QEMU_FLAGS := -boot d -cdrom $(ISO) -m 128M -serial stdio -rtc base=localtime \
 
 # ---- targets -----------------------------------------------------------
 .PHONY: all iso run run-headless ready check-tools disk programs disk-sync asm-test \
-        templates-test iris-eval models disk-models chat-model publish-model clean
+        templates-test iris-eval higgson-host models disk-models chat-model publish-model clean
 
 all: iso
 
@@ -225,6 +226,18 @@ asm-test:
 	nasm -O0 -f bin -I tests/asm/ -o $(ASM_TEST)/nasm.bin tests/asm/nasm.asm
 	cmp $(ASM_TEST)/planck.bin $(ASM_TEST)/nasm.bin
 	@echo "asm-test: identical to NASM ($$(wc -c < $(ASM_TEST)/nasm.bin | tr -d ' ') bytes)"
+
+# The Higgson compiler for this computer (docs/HIGGSON.md): the same core
+# files as the kernel's, src/higgson/, with tools/higgson-host/ in place of
+# platform_kernel.c.
+HIGGSON_HOST := $(BUILD)/higgson-host/higgson
+HIGGSON_CORE := $(filter-out src/higgson/platform_kernel.c,$(wildcard src/higgson/*.c))
+
+higgson-host: $(HIGGSON_HOST)
+
+$(HIGGSON_HOST): $(HIGGSON_CORE) $(wildcard src/higgson/*.h) $(wildcard tools/higgson-host/*.c)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c99 -Wall -Wextra -O2 -Isrc -o $@ $(wildcard tools/higgson-host/*.c) $(HIGGSON_CORE)
 
 # Fills in every Iris app template (src/apps/iris_templates.c) with every
 # color and with tricky titles, assembles each with the built-in assembler

@@ -13,7 +13,7 @@
 | Download (for `make models`) | `curl`, `shasum` (preinstalled) | `curl`, `sha256sum` (preinstalled) |
 | Python 3 (only for `make chat-model`) | `python3` (Homebrew or python.org) | `python3`, `python3-venv` |
 | GitHub CLI (only for `make publish-model`) | `gh` | `gh` |
-| Host C compiler (for `make asm-test`) | `cc` (Xcode command line tools) | `gcc` or `cc` |
+| Host C compiler (for `make asm-test`, `make higgson-host`) | `cc` (Xcode command line tools) | `gcc` or `cc` |
 
 On Windows, install [WSL2](https://learn.microsoft.com/windows/wsl/install)
 with Ubuntu and follow the Debian/Ubuntu column inside it.
@@ -42,6 +42,7 @@ refuses to compile unless the target is 32-bit x86 (`__i386__`).
 | `make asm-test` | Builds the built-in assembler for your computer and checks that its bytes for `tests/asm/encoding.asm` are identical to `nasm -O0`'s (see `ASSEMBLER.md`). |
 | `make chat-model` | Trains Iris, the chat model, on this computer and writes `models/iris.bin` and `models/iris_tok.bin` (about 40 minutes; see `TRAINING.md`). |
 | `make iris-eval` | Runs Iris's model and tool choice on this computer: prints sample conversations and scores the 50 held-out tool requests. |
+| `make higgson-host` | Builds the Higgson compiler for your computer as `build/higgson-host/higgson` (`higgson IN.HGS OUT.ASM`), from the same `src/higgson/` files as the kernel's (see `HIGGSON.md`). |
 | `make templates-test` | Fills in every Iris app template with every color, assembles each with the built-in assembler and with NASM, and compares the bytes (see "Tools" in `LLM.md`). |
 | `make clean` | Deletes `build/`. |
 

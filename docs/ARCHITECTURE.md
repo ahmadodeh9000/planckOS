@@ -70,6 +70,7 @@ Makefile        build rules, see BUILDING.md
 programs/       example programs for 'exec': hello.c, planck.h, program.ld,
                 and hello.asm, loop.asm for the built-in assembler
 tests/asm/      'make asm-test': compares the assembler's bytes with NASM's
+tools/higgson-host/  the Higgson compiler for a normal computer (make higgson-host)
 models/         language models (downloaded or trained, not in git), MODELS.sha256
 scripts/        shell scripts behind make run: check_tools, get_models,
                 sync_disk, publish_model
@@ -90,6 +91,7 @@ src/
   apps/         terminal, files, notepad, about, and the app list
   exec/         ELF loader and running programs (see EXEC.md)
   asm/          the x86 assembler: lexer, parser, encoder (see ASSEMBLER.md)
+  higgson/      the Higgson compiler: lexer, parser, emitter (see HIGGSON.md)
   llm/          language models: a port of llama2.c's run.c (see LLM.md)
 docs/           these pages
 ```
